@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(mkdir \"c:\\\\Users\\\\HP\\\\OneDrive\\\\Рабочий стол\\\\CRM-FrondEND\\\\src\\\\app\\\\employees\\\\[id]\")",
+      "Bash(Test-Path \"c:\\\\Users\\\\HP\\\\OneDrive\\\\Рабочий стол\\\\CRM-FrondEND\\\\src\\\\features\\\\projects\\\\data.ts\")",
+      "Bash(node -e ' *)",
+      "Bash(node_modules\\\\.bin\\\\prisma init *)",
+      "Bash(powershell -Command \"\\(Get-Content 'c:\\\\Users\\\\HP\\\\OneDrive\\\\Рабочий стол\\\\CRM-FrondEND\\\\src\\\\features\\\\employees\\\\components\\\\EmployeeProfilePage.tsx' -Encoding UTF8\\)[249..252]\")",
+      "PowerShell(\\(Get-Content 'c:\\\\Users\\\\HP\\\\OneDrive\\\\Рабочий стол\\\\CRM-FrondEND\\\\src\\\\features\\\\employees\\\\page.tsx' -Encoding UTF8\\)[304])",
+      "Bash(node -e \"require\\('fs'\\).unlinkSync\\('gen_warehouse.js'\\); console.log\\('Deleted'\\)\")",
+      "Bash(sed -i 's/shadow-2xl w-\\\\[480px\\\\] max-h-\\\\[85vh\\\\]/shadow-2xl w-full max-w-[480px] mx-4 max-h-[85vh]/g' \"c:\\\\Users\\\\HP\\\\OneDrive\\\\Рабочий стол\\\\CRM-FrondEND\\\\src\\\\features\\\\calls\\\\components\\\\CallHistoryModal.tsx\" \"c:\\\\Users\\\\HP\\\\OneDrive\\\\Рабочий стол\\\\CRM-FrondEND\\\\src\\\\features\\\\calls\\\\page.tsx\" \"c:\\\\Users\\\\HP\\\\OneDrive\\\\Рабочий стол\\\\CRM-FrondEND\\\\src\\\\features\\\\customers\\\\page.tsx\")",
+      "Bash(sed -i 's/shadow-2xl w-\\\\[440px\\\\] flex flex-col gap-4 p-5/shadow-2xl w-full max-w-[440px] mx-4 flex flex-col gap-4 p-5/g' \"c:\\\\Users\\\\HP\\\\OneDrive\\\\Рабочий стол\\\\CRM-FrondEND\\\\src\\\\features\\\\calls\\\\page.tsx\")",
+      "Bash(sed -i 's/shadow-2xl w-\\\\[420px\\\\] flex flex-col/shadow-2xl w-full max-w-[420px] mx-4 flex flex-col/g; s/shadow-2xl w-\\\\[360px\\\\] flex flex-col/shadow-2xl w-full max-w-[360px] mx-4 flex flex-col/g' \"c:\\\\Users\\\\HP\\\\OneDrive\\\\Рабочий стол\\\\CRM-FrondEND\\\\src\\\\features\\\\finance\\\\page.tsx\")",
+      "Bash(sed -i 's/shadow-2xl w-\\\\[580px\\\\] max-h-\\\\[90vh\\\\]/shadow-2xl w-full max-w-[580px] mx-4 max-h-[90vh]/g' \"c:\\\\Users\\\\HP\\\\OneDrive\\\\Рабочий стол\\\\CRM-FrondEND\\\\src\\\\features\\\\projects\\\\components\\\\TaskDetailModal.tsx\")",
+      "Bash(sed -i 's/shadow-2xl w-\\\\[440px\\\\] flex flex-col$/shadow-2xl w-full max-w-[440px] mx-4 flex flex-col/g' \"c:\\\\Users\\\\HP\\\\OneDrive\\\\Рабочий стол\\\\CRM-FrondEND\\\\src\\\\features\\\\warehouse\\\\page.tsx\")",
+      "Bash(node \"c:/Users/HP/OneDrive/Рабочий стол/CRM-FrondEND/fix-warehouse.js\")",
+      "Bash(del responsive_fix.js)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\HP\\OneDrive\\Рабочий стол\\CRM-FrondEND\\src\\app\\employees"
+    ]
+  }
+}

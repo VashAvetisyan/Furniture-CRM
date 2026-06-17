@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Light mode variables ─────────────────────────────────────────────────── */
+
+:root {
+  --color-dark:          #1E2028;
+  --color-light:         #EEF2F7;
+  --color-text-muted:    #8E9BAE;
+  --color-crm-border:    #E8EDF5;
+  --color-primary-light: #EEF2FF;
+  --color-bg-card:       #ffffff;
+  --color-bg-input:      #f9fafb;
+  --color-bg-subtle:     #f3f4f6;
+}
+
+/* ── Dark mode variables — deep navy palette ─────────────────────────────── */
+
+.dark {
+  /* Backgrounds — 3 clearly distinct layers */
+  --color-light:         #0D1117;   /* page background  */
+  --color-bg-card:       #161B27;   /* cards / panels   */
+  --color-bg-subtle:     #1C2333;   /* table headers, hover rows */
+  --color-bg-input:      #0D1117;   /* inputs           */
+
+  /* Text */
+  --color-dark:          #E6EDF3;   /* primary text     */
+  --color-text-muted:    #7D8FA8;   /* secondary text   */
+
+  /* Borders & accents */
+  --color-crm-border:    #21293F;
+  --color-primary-light: #182040;   /* primary-tinted bg for chips/badges */
+
+  color-scheme: dark;
+}
+
+/* ── Dark: background overrides ──────────────────────────────────────────── */
+
+.dark .bg-white,
+.dark [class*="bg-white\/"]      { background-color: var(--color-bg-card)   !important; }
+.dark .bg-gray-50,
+.dark .bg-gray-50\/80            { background-color: var(--color-bg-subtle) !important; }
+.dark .bg-gray-100               { background-color: #1C2333 !important; }
+.dark .bg-gray-200               { background-color: #252F42 !important; }
+.dark .hover\:bg-gray-50:hover   { background-color: #1C2333 !important; }
+.dark .hover\:bg-gray-100:hover  { background-color: #252F42 !important; }
+
+/* ── Dark: text overrides ────────────────────────────────────────────────── */
+
+.dark .text-gray-700  { color: #C5D0DF !important; }
+.dark .text-gray-600  { color: #B0BDD0 !important; }
+.dark .text-gray-500  { color: #8896AA !important; }
+.dark .text-gray-400  { color: #6B7A90 !important; }
+.dark .text-gray-300  { color: #5D6A7E !important; }
+
+/* ── Dark: border overrides ──────────────────────────────────────────────── */
+
+.dark .border-gray-100  { border-color: var(--color-crm-border) !important; }
+.dark .border-gray-200  { border-color: var(--color-crm-border) !important; }
+
+/* ── Dark: status chip overrides (bg-*-100 text-*-700) ──────────────────── */
+
+.dark .bg-blue-100    { background-color: rgba(67,  97, 238, 0.18) !important; }
+.dark .text-blue-700  { color: #7B9EFF !important; }
+
+.dark .bg-pink-100    { background-color: rgba(236, 72, 153, 0.15) !important; }
+.dark .text-pink-700  { color: #F59DBF !important; }
+
+.dark .bg-amber-100   { background-color: rgba(245,158, 11, 0.15) !important; }
+.dark .text-amber-700 { color: #FBB740 !important; }
+
+.dark .bg-green-100   { background-color: rgba(34, 197, 94, 0.15) !important; }
+.dark .text-green-700 { color: #4ADE80 !important; }
+
+.dark .bg-purple-100  { background-color: rgba(168, 85,247, 0.15) !important; }
+.dark .text-purple-700{ color: #C084FC !important; }
+
+.dark .bg-cyan-100    { background-color: rgba(6,  182,212, 0.15) !important; }
+.dark .text-cyan-700  { color: #22D3EE !important; }
+
+.dark .bg-gray-100.text-gray-600,
+.dark .bg-gray-100    { background-color: #252F42 !important; }
+
+/* ── Dark: shadow overrides ──────────────────────────────────────────────── */
+
+.dark .shadow-sm  { box-shadow: 0 1px 3px 0 rgba(0,0,0,.5), 0 1px 2px -1px rgba(0,0,0,.5) !important; }
+.dark .shadow-md  { box-shadow: 0 4px 6px -1px rgba(0,0,0,.6), 0 2px 4px -2px rgba(0,0,0,.6) !important; }
+.dark .shadow-xl  { box-shadow: 0 20px 25px -5px rgba(0,0,0,.7), 0 8px 10px -6px rgba(0,0,0,.7) !important; }
+.dark .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0,0,0,.9) !important; }
+
+/* ── Dark: input/form overrides ──────────────────────────────────────────── */
+
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: var(--color-bg-input) !important;
+  border-color: var(--color-crm-border)   !important;
+  color: var(--color-dark)                !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder { color: var(--color-text-muted) !important; }
+
+/* ── Dark: sidebar / layout specific ────────────────────────────────────── */
+
+/* Sidebar active item */
+.dark .bg-primary-light,
+.dark [class*="bg-primary\/"] {
+  /* keep the primary tint but darker */
+}
+
+/* Backdrop blur modals */
+.dark .backdrop-blur-sm { backdrop-filter: blur(6px); }
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: #CBD5E1; border-radius: 6px; }
+.dark ::-webkit-scrollbar-thumb { background: #2D3A52; }
+::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #3D4F6E; }
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
+
+html { scroll-behavior: smooth; }
+body { @apply bg-light text-dark; }
+
+/* ── Transitions for theme switch ────────────────────────────────────────── */
+
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+
+/* Disable transitions on elements where it would look bad */
+.no-transition,
+.no-transition * { transition: none !important; }
