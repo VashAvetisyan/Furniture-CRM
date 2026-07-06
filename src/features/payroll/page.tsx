@@ -110,7 +110,7 @@ function FormulaModal({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-crm-border">
           <h2 className="text-base font-bold text-dark">
-            {initial ? 'Խmbagrél բանաձեVez' : 'Nor բanadzev'}
+            {initial ? 'Խմբագրել բանաձևը' : 'Նոր բանաձև'}
           </h2>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-text-muted hover:bg-gray-100 hover:text-dark transition-colors">✕</button>
         </div>
@@ -119,18 +119,18 @@ function FormulaModal({
           {/* Name + description */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Անuun *</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Վաճaroshi formula..." className={inputCls} />
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Անուն *</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Վաճառքի բանաձև..." className={inputCls} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Naratagutyun</label>
-              <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Opsional..." className={inputCls} />
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Նկարագրություն</label>
+              <input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Լրացուցիչ..." className={inputCls} />
             </div>
           </div>
 
           {/* Target type */}
           <div className="flex flex-col gap-2">
-            <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Kem kiroharvel</label>
+            <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Կիրառել ում համար</label>
             <div className="flex bg-gray-100 rounded-xl p-1 gap-1 w-fit">
               {(['position', 'user'] as const).map((t) => (
                 <button
@@ -140,19 +140,19 @@ function FormulaModal({
                     targetType === t ? 'bg-white text-dark shadow-sm' : 'text-text-muted hover:text-dark'
                   }`}
                 >
-                  {t === 'position' ? 'Պաshatony' : 'Konkret ashkhatos'}
+                  {t === 'position' ? 'Պաշտոնի' : 'Կոնկրետ աշխատողի'}
                 </button>
               ))}
             </div>
 
             {targetType === 'position' ? (
               <select value={positionId} onChange={(e) => setPositionId(e.target.value)} className={inputCls}>
-                <option value="">Chntrel pashaton...</option>
+                <option value="">Ընտրել պաշտոն...</option>
                 {positions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             ) : (
               <select value={userId} onChange={(e) => setUserId(e.target.value)} className={inputCls}>
-                <option value="">Chntrel ashkhatos...</option>
+                <option value="">Ընտրել աշխատող...</option>
                 {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
               </select>
             )}
@@ -161,7 +161,7 @@ function FormulaModal({
           {/* Variables palette */}
           {variables.length > 0 && (
             <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Հasaneli pokhokhanakner (click = avel formula-yin)</label>
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Հասանելի փոփոխականներ (սեղմեք՝ ավելացնելու համար)</label>
               <div className="flex flex-wrap gap-1.5">
                 {variables.map((v) => (
                   <button
@@ -181,7 +181,7 @@ function FormulaModal({
 
           {/* Expression editor */}
           <div className="flex flex-col gap-2">
-            <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Բanadzev *</label>
+            <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">բանաձև *</label>
             <textarea
               value={expression}
               onChange={(e) => { setExpression(e.target.value); setValidResult(null); }}
@@ -202,11 +202,11 @@ function FormulaModal({
                 ) : (
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 )}
-                Stugel
+                Ստուգել
               </button>
               {validResult && (
                 <span className={`text-xs font-semibold flex items-center gap-1 ${validResult.valid ? 'text-success' : 'text-error'}`}>
-                  {validResult.valid ? '✓ Ճiht e' : `✕ ${validResult.error ?? 'Skhale'}`}
+                  {validResult.valid ? '✓ Ճիշտ է' : `✕ ${validResult.error ?? 'Սխալ'}`}
                   {validResult.valid && validResult.vars && validResult.vars.length > 0 && (
                     <span className="font-normal text-text-muted">· {validResult.vars.join(', ')}</span>
                   )}
@@ -226,7 +226,7 @@ function FormulaModal({
             >
               <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${isActive ? 'translate-x-5' : 'translate-x-0'}`} />
             </button>
-            <span className="text-sm font-medium text-dark">Aktiv</span>
+            <span className="text-sm font-medium text-dark">Ակտիվ</span>
           </label>
 
           {saveError && <p className="text-xs text-error">{saveError}</p>}
@@ -235,14 +235,14 @@ function FormulaModal({
         {/* Footer */}
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-crm-border">
           <button onClick={onClose} disabled={isPending} className="px-5 py-2.5 text-sm font-medium rounded-xl border border-crm-border text-dark hover:bg-gray-50 transition-colors disabled:opacity-50">
-            Chegharksel
+            Չեղարկել
           </button>
           <button
             onClick={() => save()}
             disabled={isPending || !name.trim() || !expression.trim()}
             className="px-6 py-2.5 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors shadow-sm disabled:opacity-60"
           >
-            {isPending ? 'Pahpanum...' : 'Pahpanel'}
+            {isPending ? 'Պահպանում...' : 'Պահպանել'}
           </button>
         </div>
       </div>
@@ -286,7 +286,7 @@ function CalculatorModal({ onClose }: { onClose: () => void }) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-crm-border">
           <h2 className="text-base font-bold text-dark flex items-center gap-2">
-            <span className="text-lg">🧮</span> Ashkhatavarzehi hasvarkel
+            <span className="text-lg">🧮</span> Աշխատավարձի հաշվարկ
           </h2>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full text-text-muted hover:bg-gray-100 transition-colors">✕</button>
         </div>
@@ -294,9 +294,9 @@ function CalculatorModal({ onClose }: { onClose: () => void }) {
         <div className="px-5 py-4 flex flex-col gap-4">
           {/* Employee */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Ashkhatos *</label>
+            <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Աշխատող *</label>
             <select value={empId} onChange={(e) => { setEmpId(e.target.value); setResult(null); setError(''); }} className={inputCls}>
-              <option value="">Chntrel ashkhatos...</option>
+              <option value="">Ընտրել աշխատող...</option>
               {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
             </select>
           </div>
@@ -304,11 +304,11 @@ function CalculatorModal({ onClose }: { onClose: () => void }) {
           {/* Date range */}
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Skzbit amsatxiv</label>
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Սկզբի ամսաթիվ</label>
               <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setResult(null); }} className={inputCls} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Verj amsatxiv</label>
+              <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Վերջի ամսաթիվ</label>
               <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setResult(null); }} className={inputCls} />
             </div>
           </div>
@@ -332,7 +332,7 @@ function CalculatorModal({ onClose }: { onClose: () => void }) {
               {/* Variables breakdown */}
               {Object.keys(result.variables).length > 0 && (
                 <div className="bg-white rounded-xl border border-crm-border p-3">
-                  <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2">Pokhokhanakner</p>
+                  <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2">Փոփոխականներ</p>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                     {Object.entries(result.variables).map(([k, v]) => (
                       <div key={k} className="flex items-center justify-between gap-2">
@@ -345,7 +345,7 @@ function CalculatorModal({ onClose }: { onClose: () => void }) {
               )}
 
               <p className="text-[10px] text-text-muted">
-                Period: {result.period_start} — {result.period_end} · Formula: {result.formula_name}
+                Ժամանակաշրջան: {result.period_start} — {result.period_end} · Բանաձև: {result.formula_name}
               </p>
             </div>
           )}
@@ -353,7 +353,7 @@ function CalculatorModal({ onClose }: { onClose: () => void }) {
 
         <div className="flex justify-end gap-2 px-5 py-4 border-t border-crm-border">
           <button onClick={onClose} className="px-5 py-2.5 text-sm font-medium rounded-xl border border-crm-border text-dark hover:bg-gray-50 transition-colors">
-            Klonel
+            Փակել
           </button>
           <button
             onClick={handleCalc}
@@ -361,7 +361,7 @@ function CalculatorModal({ onClose }: { onClose: () => void }) {
             className="px-6 py-2.5 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors shadow-sm disabled:opacity-60 flex items-center gap-2"
           >
             {loading && <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>}
-            {loading ? 'Hasvarkvum...' : 'Hasvarkel'}
+            {loading ? 'Հաշվարկվում...' : 'Հաշվարկել'}
           </button>
         </div>
       </div>
@@ -412,7 +412,7 @@ export default function PayrollPage() {
   if (!isDirector) {
     return (
       <div className="flex-1 flex items-center justify-center text-text-muted text-sm p-6">
-        Այս բաzhnum mijain tnorenn e hasaнeli
+        Այս բաժինը հասանելի է միայն տնօրենին
       </div>
     );
   }
@@ -424,7 +424,7 @@ export default function PayrollPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-lg md:text-xl font-bold text-dark">Աշխատավարձի բանաձևեր</h1>
-          <p className="text-xs text-text-muted mt-0.5">{formulas.length} banadzev · {variables.length} pokhokhanakner</p>
+          <p className="text-xs text-text-muted mt-0.5">{formulas.length} բանաձև · {variables.length} փոփոխական</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -432,7 +432,7 @@ export default function PayrollPage() {
             className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl border border-crm-border text-dark hover:bg-gray-50 transition-colors"
           >
             <span>🧮</span>
-            <span className="hidden sm:inline">Hasvarkel</span>
+            <span className="hidden sm:inline">Հաշվարկել</span>
           </button>
           <button
             onClick={() => { setEditTarget(undefined); setModalOpen(true); }}
@@ -441,7 +441,7 @@ export default function PayrollPage() {
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
-            <span className="hidden sm:inline">Nor banadzev</span>
+            <span className="hidden sm:inline">Նոր բանաձև</span>
           </button>
         </div>
       </div>
@@ -449,7 +449,7 @@ export default function PayrollPage() {
       {/* Variables reference card */}
       {variables.length > 0 && (
         <div className="bg-white rounded-2xl border border-crm-border p-4">
-          <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3">Hasaneli pokhokhanakner</p>
+          <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-3">Հասանելի փոփոխականներ</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {variables.map((v) => (
               <div key={v.name} className="flex items-start gap-2">
@@ -470,7 +470,7 @@ export default function PayrollPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-text-muted text-sm gap-3">
           <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          Bernvum e...
+          Բեռնվում է...
         </div>
       ) : formulas.length === 0 ? (
         <div className="bg-white rounded-2xl border border-crm-border flex flex-col items-center justify-center py-16 gap-3 text-text-muted">
@@ -479,12 +479,12 @@ export default function PayrollPage() {
             <path d="M9 3v6h6M9 3l6 6"/>
             <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="12" y2="17"/>
           </svg>
-          <p className="text-sm">Banadzevner chunen — aveletstsel nor banadzev</p>
+          <p className="text-sm">Բանաձևներ չկան</p>
           <button
             onClick={() => { setEditTarget(undefined); setModalOpen(true); }}
             className="px-4 py-2 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors"
           >
-            Avel nor banadzev
+            Ավելի նոր բանաձև
           </button>
         </div>
       ) : (
@@ -495,10 +495,10 @@ export default function PayrollPage() {
               <div className="flex-1 min-w-0 flex flex-col gap-1.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${f.is_active ? 'bg-success/10 text-success' : 'bg-gray-100 text-gray-500'}`}>
-                    {f.is_active ? 'Aktiv' : 'Anaktiv'}
+                    {f.is_active ? 'Ակտիվ' : 'Ոչ ակտիվ'}
                   </span>
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                    {f.target_type === 'position' ? `Pashaton: ${f.position_name ?? f.position ?? '—'}` : `Ogtater: ${f.user_name ?? f.user ?? '—'}`}
+                    {f.target_type === 'position' ? `Պաշտոն. ${f.position_name ?? f.position ?? '—'}` : `Օգտատեր. ${f.user_name ?? f.user ?? '—'}`}
                   </span>
                 </div>
 
@@ -524,7 +524,7 @@ export default function PayrollPage() {
                   onClick={() => { setEditTarget(f); setModalOpen(true); }}
                   className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-crm-border text-dark hover:bg-gray-50 transition-colors"
                 >
-                  Xmbagrél
+                  Խմբագրել
                 </button>
                 <button
                   onClick={() => setDeleteId(f.id)}
@@ -557,14 +557,14 @@ export default function PayrollPage() {
       {deleteId !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm flex flex-col gap-4">
-            <p className="text-base font-bold text-dark">Djnjel banadzev?</p>
-            <p className="text-sm text-text-muted">Ays gortsoghutyune hery che karo veradardzel.</p>
+            <p className="text-base font-bold text-dark">Ջնջե՞լ բանաձևը</p>
+            <p className="text-sm text-text-muted">Այս գործողությունը հետ շրջելի չէ։</p>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setDeleteId(null)} className="px-4 py-2 text-sm font-medium rounded-xl border border-crm-border text-dark hover:bg-gray-50 transition-colors">
-                Chegharksel
+                Չեղարկել
               </button>
               <button onClick={() => doDelete(deleteId)} className="px-4 py-2 text-sm font-semibold rounded-xl bg-error text-white hover:bg-error/90 transition-colors">
-                Djnjel
+                Ջնջել
               </button>
             </div>
           </div>

@@ -78,7 +78,7 @@ export default function LoginPage() {
   const featureCards = [
     {
       label: 'Պատվերներ',
-      desc: 'Kanban · Ակտիվ · Արխիվ',
+      desc: 'Ակտիվ · Արխիվ',
       icon: (
         <>
           <rect x="3" y="3" width="7" height="7" rx="1"/>
