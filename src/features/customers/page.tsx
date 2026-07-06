@@ -1,4 +1,5 @@
 ﻿'use client';
+import { SkTable } from '@/components/ui/Skeleton';
 
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -42,8 +43,13 @@ function taskDtoToTask(t: TaskDTO): Task {
     softnessId:       t.softnessId,
     notes:            t.notes,
     price:            t.price,
+    totalPaid:        t.totalPaid,
+    balanceDue:       t.balanceDue,
+    payments:         t.payments as Task['payments'],
     advancePayment:   t.advancePayment,
     finalPayment:     t.finalPayment,
+    delivery:          t.delivery ?? null,
+    deliveryConfirmed: t.deliveryConfirmed ?? false,
   };
 }
 
@@ -220,11 +226,16 @@ function CustomerModal({ initial, sources, onClose }: {
 }) {
   const queryClient = useQueryClient();
 
-  const [firstName,    setFirstName]    = useState(initial?.first_name  ?? '');
-  const [lastName,     setLastName]     = useState(initial?.last_name   ?? '');
-  const [phone,        setPhone]        = useState(initial?.phone       ?? '');
-  const [email,        setEmail]        = useState(initial?.email       ?? '');
-  const [address,      setAddress]      = useState(initial?.address     ?? '');
+  const [clientType,   setClientType]   = useState<'individual' | 'legal'>(initial?.client_type ?? 'individual');
+  const [firstName,    setFirstName]    = useState(initial?.first_name    ?? '');
+  const [lastName,     setLastName]     = useState(initial?.last_name     ?? '');
+  const [companyName,  setCompanyName]  = useState(initial?.company_name  ?? '');
+  const [phone,        setPhone]        = useState(initial?.phone         ?? '');
+  const [phoneAlt,     setPhoneAlt]     = useState(initial?.phone_alt     ?? '');
+  const [email,        setEmail]        = useState(initial?.email         ?? '');
+  const [address,      setAddress]      = useState(initial?.address       ?? '');
+  const [notes,        setNotes]        = useState(initial?.notes         ?? '');
+  const [nextCallDate, setNextCallDate] = useState(initial?.next_call_date?.slice(0, 10) ?? '');
   const [sourceId,     setSourceId]     = useState<number | null>(initial?.source?.id ?? null);
   const [addingSource, setAddingSource] = useState(false);
   const [newSource,    setNewSource]    = useState('');
@@ -253,12 +264,17 @@ function CustomerModal({ initial, sources, onClose }: {
   function submit() {
     if (!firstName.trim() || !phone.trim()) return;
     mutate({
-      first_name: firstName.trim(),
-      last_name:  lastName.trim()  || undefined,
-      phone:      phone.trim(),
-      email:      email.trim()     || undefined,
-      address:    address.trim()   || undefined,
-      source:     sourceId,
+      client_type:    clientType,
+      first_name:     firstName.trim(),
+      last_name:      lastName.trim()     || undefined,
+      company_name:   companyName.trim()  || undefined,
+      phone:          phone.trim(),
+      phone_alt:      phoneAlt.trim()     || undefined,
+      email:          email.trim()        || undefined,
+      address:        address.trim()      || undefined,
+      notes:          notes.trim()        || undefined,
+      next_call_date: nextCallDate        || null,
+      source:         sourceId,
     });
   }
 
@@ -266,11 +282,11 @@ function CustomerModal({ initial, sources, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[480px] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[480px] flex flex-col max-h-[90vh]">
 
         <div className="flex items-center justify-between px-6 py-4 border-b border-crm-border flex-shrink-0">
           <h2 className="text-base font-bold text-dark">
-            {initial ? 'Խմբագրել' : 'Նոր հաճախորդ'}
+            {initial ? 'Խմբагրел' : 'Նоr hачаxоrd'}
           </h2>
           <button onClick={onClose} className="text-text-muted hover:text-dark transition-colors">
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -279,22 +295,54 @@ function CustomerModal({ initial, sources, onClose }: {
           </button>
         </div>
 
-        <div className="px-6 py-5 flex flex-col gap-4 overflow-y-auto max-h-[70vh]">
+        <div className="px-6 py-5 flex flex-col gap-4 overflow-y-auto flex-1">
+
+          {/* Client type */}
+          <Field label="Տipі" optional>
+            <div className="flex rounded-xl overflow-hidden border border-crm-border">
+              {(['individual', 'legal'] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setClientType(t)}
+                  className={`flex-1 py-2.5 text-sm font-semibold transition-colors border-r border-crm-border last:border-r-0 ${clientType === t ? 'bg-primary text-white' : 'bg-white text-text-muted hover:bg-gray-50'}`}
+                >
+                  {t === 'individual' ? 'Ֆիզիկական' : 'Իравабанакан'}
+                </button>
+              ))}
+            </div>
+          </Field>
+
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Անուն *">
-              <input className={inputCls} placeholder="Անուն..." value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+            <Field label="Անун *">
+              <input className={inputCls} placeholder="Անун..." value={firstName} onChange={(e) => setFirstName(e.target.value)} />
             </Field>
-            <Field label="Ազգանուն" optional>
-              <input className={inputCls} placeholder="Ազգանուն..." value={lastName} onChange={(e) => setLastName(e.target.value)} />
+            <Field label="Азгануn" optional>
+              <input className={inputCls} placeholder="Азгануn..." value={lastName} onChange={(e) => setLastName(e.target.value)} />
             </Field>
           </div>
 
-          <Field label="Հեռախոսահամար *">
+          {clientType === 'legal' && (
+            <Field label="Ynkerутян анун" optional>
+              <input className={inputCls} placeholder="LLC / ՍՊԸ..." value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+            </Field>
+          )}
+
+          <Field label="Heřaxosaamar *">
             <div className="relative">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.69A2 2 0 012 .9h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.75a16 16 0 006.16 6.16l1.21-1.21a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
               </svg>
               <input className={`${inputCls} pl-9`} placeholder="+374 __ ______" value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" />
+            </div>
+          </Field>
+
+          <Field label="Lracucich heřaxos" optional>
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.69A2 2 0 012 .9h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.75a16 16 0 006.16 6.16l1.21-1.21a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+              </svg>
+              <input className={`${inputCls} pl-9`} placeholder="+374 __ ______" value={phoneAlt} onChange={(e) => setPhoneAlt(e.target.value)} type="tel" />
             </div>
           </Field>
 
@@ -307,11 +355,25 @@ function CustomerModal({ initial, sources, onClose }: {
             </div>
           </Field>
 
-          <Field label="Հասցե" optional>
-            <input className={inputCls} placeholder="Քաղաք, փողոց..." value={address} onChange={(e) => setAddress(e.target.value)} />
+          <Field label="Hascе" optional>
+            <input className={inputCls} placeholder="Qałak, połoc..." value={address} onChange={(e) => setAddress(e.target.value)} />
           </Field>
 
-          <Field label="Աղբյուր" optional>
+          <Field label="Nshumer" optional>
+            <textarea
+              className={`${inputCls} resize-none`}
+              rows={3}
+              placeholder="Nshumer hachaxordi masin..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </Field>
+
+          <Field label="Hajord zangi amsativ" optional>
+            <input type="date" className={inputCls} value={nextCallDate} onChange={(e) => setNextCallDate(e.target.value)} />
+          </Field>
+
+          <Field label="Ałbyur" optional>
             <div className="flex flex-wrap gap-2 items-center">
               {sources.map((s) => (
                 <button
@@ -327,7 +389,6 @@ function CustomerModal({ initial, sources, onClose }: {
                   {s.name}
                 </button>
               ))}
-
               {addingSource ? (
                 <div className="flex items-center gap-1">
                   <input
@@ -338,29 +399,15 @@ function CustomerModal({ initial, sources, onClose }: {
                       if (e.key === 'Enter' && newSource.trim()) createSource(newSource.trim());
                       if (e.key === 'Escape') { setAddingSource(false); setNewSource(''); }
                     }}
-                    placeholder="Անուն..."
+                    placeholder="Anunn..."
                     disabled={creatingSource}
                     className="w-24 px-2 py-1 text-xs rounded-lg border border-primary outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-50"
                   />
-                  <button
-                    type="button"
-                    onClick={() => newSource.trim() && createSource(newSource.trim())}
-                    disabled={!newSource.trim() || creatingSource}
-                    className="w-6 h-6 flex items-center justify-center rounded-full bg-primary text-white text-xs hover:bg-primary-hover disabled:opacity-40 transition-colors"
-                  >✓</button>
-                  <button
-                    type="button"
-                    onClick={() => { setAddingSource(false); setNewSource(''); }}
-                    className="w-6 h-6 flex items-center justify-center rounded-full border border-crm-border text-text-muted hover:border-error hover:text-error text-xs transition-colors"
-                  >✕</button>
+                  <button type="button" onClick={() => newSource.trim() && createSource(newSource.trim())} disabled={!newSource.trim() || creatingSource} className="w-6 h-6 flex items-center justify-center rounded-full bg-primary text-white text-xs hover:bg-primary-hover disabled:opacity-40 transition-colors">✓</button>
+                  <button type="button" onClick={() => { setAddingSource(false); setNewSource(''); }} className="w-6 h-6 flex items-center justify-center rounded-full border border-crm-border text-text-muted hover:border-error hover:text-error text-xs transition-colors">✕</button>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setAddingSource(true)}
-                  className="w-7 h-7 flex items-center justify-center rounded-full border-2 border-dashed border-crm-border text-text-muted hover:border-primary hover:text-primary transition-colors text-base font-light"
-                  title="Ավելացնել աղբյուր"
-                >+</button>
+                <button type="button" onClick={() => setAddingSource(true)} className="w-7 h-7 flex items-center justify-center rounded-full border-2 border-dashed border-crm-border text-text-muted hover:border-primary hover:text-primary transition-colors text-base font-light" title="Ավելացնել Աղբյուր">+</button>
               )}
             </div>
           </Field>
@@ -368,7 +415,7 @@ function CustomerModal({ initial, sources, onClose }: {
 
         <div className="flex gap-2 px-6 py-4 border-t border-crm-border justify-end flex-shrink-0">
           <button onClick={onClose} className="px-4 py-2 text-sm font-semibold rounded-xl border border-crm-border text-text-muted hover:bg-gray-50 transition-colors">
-            Չեղարկել
+            Чеłarkеl
           </button>
           <button
             onClick={submit}
@@ -576,6 +623,18 @@ function DeleteConfirm({ name, onCancel, onConfirm, isPending }: {
 
 // ── Customer View Modal ───────────────────────────────────────────────────────
 
+function InfoRow({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3 py-2.5 px-3 bg-gray-50 rounded-xl border border-gray-100">
+      <span className="flex-shrink-0 mt-0.5 text-text-muted">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-0.5">{label}</p>
+        <div className="text-sm text-dark">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 function CustomerViewModal({ client, sources, onClose, onEdit, onViewTasks, onViewCalls, onDelete }: {
   client:      ClientDTO;
   sources:     SourceDTO[];
@@ -585,68 +644,153 @@ function CustomerViewModal({ client, sources, onClose, onEdit, onViewTasks, onVi
   onViewCalls: () => void;
   onDelete:    () => void;
 }) {
-  const initials = `${client.first_name.charAt(0)}${client.last_name.charAt(0)}`.toUpperCase();
+  const initials = `${client.first_name.charAt(0)}${(client.last_name ?? '').charAt(0)}`.toUpperCase();
+  const fullName = [client.first_name, client.last_name].filter(Boolean).join(' ');
+
+  const phoneIcon = (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.69A2 2 0 012 .9h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.75a16 16 0 006.16 6.16l1.21-1.21a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+    </svg>
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[460px] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[480px] flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
 
         {/* Header */}
-        <div className="flex items-start justify-between px-6 pt-5 pb-4">
+        <div className="flex items-start justify-between px-6 pt-5 pb-4 flex-shrink-0">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center flex-shrink-0">
               <span className="text-xl font-bold text-primary">{initials}</span>
             </div>
             <div>
-              <h2 className="text-lg font-bold text-dark">{client.first_name} {client.last_name}</h2>
-              {client.source && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary mt-1">
-                  {client.source.name}
+              <h2 className="text-lg font-bold text-dark">{fullName}</h2>
+              <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${client.client_type === 'legal' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
+                  {client.client_type === 'legal' ? 'Իրավաբանական' : 'Ֆիզիկական'}
                 </span>
-              )}
+                {client.source && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary">
+                    {client.source.name}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-text-muted hover:text-dark hover:bg-gray-100 rounded-lg transition-colors">
+          <button onClick={onClose} className="p-1.5 text-text-muted hover:text-dark hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
         </div>
 
-        {/* Info */}
-        <div className="px-6 pb-5 flex flex-col gap-2.5">
-          {/* Phone */}
-          <div className="flex items-center gap-3 py-2.5 px-3 bg-gray-50 rounded-xl border border-gray-100">
-            <svg className="w-4 h-4 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.69A2 2 0 012 .9h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.75a16 16 0 006.16 6.16l1.21-1.21a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
-            </svg>
-            <a href={`tel:${client.phone}`} className="text-sm font-semibold text-primary hover:underline">{client.phone}</a>
-          </div>
+        {/* Scrollable info */}
+        <div className="px-6 pb-5 flex flex-col gap-2 overflow-y-auto flex-1">
+
+          <InfoRow label="Հեռախոսահամար" icon={phoneIcon}>
+            <a href={`tel:${client.phone}`} className="font-semibold text-primary hover:underline">{client.phone}</a>
+          </InfoRow>
+
+          {client.phone_alt && (
+            <InfoRow label="Լրացուցիչ հեռախոս" icon={phoneIcon}>
+              <a href={`tel:${client.phone_alt}`} className="text-primary hover:underline">{client.phone_alt}</a>
+            </InfoRow>
+          )}
 
           {client.email && (
-            <div className="flex items-center gap-3 py-2.5 px-3 bg-gray-50 rounded-xl border border-gray-100">
-              <svg className="w-4 h-4 text-text-muted flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <InfoRow label="Email" icon={
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
               </svg>
-              <a href={`mailto:${client.email}`} className="text-sm text-dark hover:text-primary truncate">{client.email}</a>
-            </div>
+            }>
+              <a href={`mailto:${client.email}`} className="text-primary hover:underline break-all">{client.email}</a>
+            </InfoRow>
+          )}
+
+          {client.company_name && (
+            <InfoRow label="Ընկերության անուն" icon={
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+            }>
+              {client.company_name}
+            </InfoRow>
           )}
 
           {client.address && (
-            <div className="flex items-center gap-3 py-2.5 px-3 bg-gray-50 rounded-xl border border-gray-100">
-              <svg className="w-4 h-4 text-text-muted flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <InfoRow label="Հասցե" icon={
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/>
               </svg>
-              <span className="text-sm text-dark">{client.address}</span>
-            </div>
+            }>
+              {client.address}
+            </InfoRow>
           )}
 
-          {/* Stats row */}
+          {client.id_document && (
+            <InfoRow label="Passport series" icon={
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
+              </svg>
+            }>
+              {client.id_document}
+            </InfoRow>
+          )}
+
+          {client.description && (
+            <InfoRow label="Նկարագրություն" icon={
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+            }>
+              <span className="whitespace-pre-wrap text-text-muted">{client.description}</span>
+            </InfoRow>
+          )}
+
+          {client.notes && (
+            <InfoRow label="Նշումներ" icon={
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+            }>
+              <span className="whitespace-pre-wrap text-text-muted">{client.notes}</span>
+            </InfoRow>
+          )}
+
+          {client.next_call_date && (
+            <InfoRow label="Հաջորդ զանգ" icon={
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+            }>
+              <span className="font-medium text-warning">{fmtDate(client.next_call_date)}</span>
+            </InfoRow>
+          )}
+
+          {client.last_called_at && (
+            <InfoRow label="Վերջին զանգ" icon={
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            }>
+              {fmtDate(client.last_called_at)}
+            </InfoRow>
+          )}
+
+          <InfoRow label="Ավելացվել է" icon={
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+          }>
+            <span className="text-text-muted">{fmtDate(client.created_at)}</span>
+          </InfoRow>
+
+          {/* Stats */}
           <div className="grid grid-cols-2 gap-2.5 mt-1">
-            <button
-              onClick={onViewCalls}
-              className="flex items-center gap-2.5 py-3 px-4 rounded-xl border border-crm-border hover:border-success/40 hover:bg-success/5 transition-all text-left"
-            >
+            <button onClick={onViewCalls} className="flex items-center gap-2.5 py-3 px-4 rounded-xl border border-crm-border hover:border-success/40 hover:bg-success/5 transition-all text-left">
               <svg className="w-5 h-5 text-success flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.69A2 2 0 012 .9h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.75a16 16 0 006.16 6.16l1.21-1.21a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
               </svg>
@@ -655,11 +799,7 @@ function CustomerViewModal({ client, sources, onClose, onEdit, onViewTasks, onVi
                 <p className="text-[11px] text-text-muted">Զանգեր</p>
               </div>
             </button>
-
-            <button
-              onClick={onViewTasks}
-              className="flex items-center gap-2.5 py-3 px-4 rounded-xl border border-crm-border hover:border-primary/40 hover:bg-primary/5 transition-all text-left"
-            >
+            <button onClick={onViewTasks} className="flex items-center gap-2.5 py-3 px-4 rounded-xl border border-crm-border hover:border-primary/40 hover:bg-primary/5 transition-all text-left">
               <svg className="w-5 h-5 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
               </svg>
@@ -672,24 +812,16 @@ function CustomerViewModal({ client, sources, onClose, onEdit, onViewTasks, onVi
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-crm-border">
-          <button
-            onClick={onDelete}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-error hover:bg-error/10 rounded-xl transition-colors"
-          >
+        <div className="flex items-center justify-between px-6 py-4 border-t border-crm-border flex-shrink-0">
+          <button onClick={onDelete} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-error hover:bg-error/10 rounded-xl transition-colors">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
             </svg>
             Ջնջել
           </button>
           <div className="flex gap-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-xl border border-crm-border text-dark hover:bg-gray-50 transition-colors">
-              Փակել
-            </button>
-            <button
-              onClick={onEdit}
-              className="flex items-center gap-1.5 px-5 py-2 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors"
-            >
+            <button onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-xl border border-crm-border text-dark hover:bg-gray-50 transition-colors">Փակել</button>
+            <button onClick={onEdit} className="flex items-center gap-1.5 px-5 py-2 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors">
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
@@ -702,7 +834,6 @@ function CustomerViewModal({ client, sources, onClose, onEdit, onViewTasks, onVi
     </div>
   );
 }
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CustomersPage() {
@@ -828,7 +959,7 @@ export default function CustomersPage() {
       {/* List */}
       <div className="flex-shrink-0">
         {isLoading ? (
-          <div className="flex items-center justify-center h-48 text-text-muted text-sm">Բեռնվում է...</div>
+          <div className="bg-white rounded-2xl border border-crm-border overflow-hidden p-4"><SkTable rows={6} cols={5} /></div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3 bg-white rounded-2xl border border-dashed border-crm-border">
             <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
@@ -957,3 +1088,4 @@ export default function CustomersPage() {
     </div>
   );
 }
+

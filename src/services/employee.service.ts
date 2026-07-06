@@ -15,9 +15,9 @@ export interface EmployeeDTO {
   onVacation?: boolean;
   isActive?: boolean;
   tasks: {
-    backlog:    number;
+    total:      number;
+    done:       number;
     inProgress: number;
-    inReview:   number;
   };
 }
 

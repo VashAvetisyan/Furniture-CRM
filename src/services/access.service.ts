@@ -53,10 +53,10 @@ export const accessService = {
     return toArray(res);
   },
 
-  setCompanySetting(page_id: number, employee_access: boolean) {
+  setCompanySetting(page_slug: string, enabled: boolean) {
     return request<CompanySetting>('/access/company-settings/', {
       method: 'POST',
-      body: { page: page_id, employee_access },
+      body: { page_slug, enabled },
     });
   },
 

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { DashboardDeadline } from '@/services/task.service';
+import { SkListRow } from '@/components/ui/Skeleton';
 
 function getToday() {
   const d = new Date();
@@ -34,7 +35,7 @@ export default function UpcomingDeadlines({
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-text-muted text-center py-6">Բեռնվում...</p>
+        <div className="space-y-1">{Array.from({ length: 4 }).map((_, i) => <SkListRow key={i} />)}</div>
       ) : !deadlines || deadlines.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-8">
           <span className="text-3xl">✅</span>

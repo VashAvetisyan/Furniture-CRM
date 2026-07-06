@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { SkTable } from '@/components/ui/Skeleton';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { PencilSquareIcon } from '@/components/icons';
 import { useAuthStore } from '@/stores';
@@ -102,7 +103,7 @@ function PriorityBadge({ priority }: { priority: string }) {
 
 function TasksTab({ tasks, loading }: { tasks: TaskDTO[]; loading: boolean }) {
   if (loading) return (
-    <div className="flex items-center justify-center h-48 text-text-muted text-sm">Բեռնվում է...</div>
+    <div className="bg-white rounded-2xl border border-crm-border overflow-hidden p-4"><SkTable rows={5} cols={4} /></div>
   );
   if (tasks.length === 0) return (
     <div className="flex flex-col items-center justify-center h-56 gap-3 bg-white rounded-2xl border border-dashed border-crm-border shadow-sm">
@@ -174,7 +175,7 @@ function SalaryTab({ tasks, userId, loading }: { tasks: TaskDTO[]; userId: strin
   const totalPaid   = rows.reduce((s, r) => s + Number(r.totalPaid   || 0), 0);
   const remaining   = totalSalary - totalPaid;
 
-  if (loading) return <div className="flex items-center justify-center h-48 text-text-muted text-sm">Բեռնվում է...</div>;
+  if (loading) return <div className="bg-white rounded-2xl border border-crm-border overflow-hidden p-4"><SkTable rows={5} cols={4} /></div>;
 
   return (
     <div className="flex flex-col gap-4">

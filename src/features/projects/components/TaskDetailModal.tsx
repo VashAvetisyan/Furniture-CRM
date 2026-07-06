@@ -4,15 +4,15 @@ import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { taskService, taskStatusService, fabricTypeService, softnessService, attachmentService } from '@/services/task.service';
 import type { NamedItemDTO, TaskCommentDTO, AttachmentDTO } from '@/services/task.service';
+import { deliveryService } from '@/services/delivery.service';
 import { debtService } from '@/services/debt.service';
-import { financeService } from '@/services/finance.service';
 import { mediaUrl } from '@/lib/api';
 import { employeeService } from '@/services/employee.service';
 import { clientService, type ClientDTO } from '@/services/client.service';
 import Avatar from '@/components/ui/Avatar';
 import { useAuthStore } from '@/stores';
 import { ArrowUpIcon, ArrowDownIcon } from '@/components/icons';
-import type { Task, TaskPriority } from '../types';
+import type { Task, TaskPriority, TaskPayment, TaskDeliveryInfo } from '../types';
 
 const PRIORITIES: TaskPriority[] = ['High', 'Medium', 'Low'];
 
@@ -210,64 +210,40 @@ function initRows(task: Task): AssigneeRow[] {
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface TaskDetailModalProps {
-  task: Task;
-  projectName?: string;
-  onClose: () => void;
+  task:               Task;
+  projectName?:       string;
+  onClose:            () => void;
+  allowArchive?:      boolean;
+  allowSendDelivery?: boolean;
 }
 
-export default function TaskDetailModal({ task, projectName, onClose }: TaskDetailModalProps) {
+export default function TaskDetailModal({ task, projectName, onClose, allowArchive = false, allowSendDelivery = false }: TaskDetailModalProps) {
   const queryClient = useQueryClient();
   const role        = useAuthStore((s) => s.role);
+  const user        = useAuthStore((s) => s.user);
   const isEmployee  = role === 'employee';
+  const myUserId    = user?.id ? Number(user.id) : null;
   const [editing, setEditing] = useState(false);
   const [saveError, setSaveError] = useState('');
 
-  interface SaveVars {
-    taskData:     Parameters<typeof taskService.update>[1];
-    advanceDiff:  number;
-    finalDiff:    number;
-    advanceDate:  string;
-    finalDate:    string;
-  }
-
   const { mutate, isPending } = useMutation({
-    mutationFn: async ({ taskData, advanceDiff, finalDiff, advanceDate, finalDate }: SaveVars) => {
+    mutationFn: async ({ taskData }: { taskData: Parameters<typeof taskService.update>[1] }) => {
       await taskService.update(task.id, taskData);
-      const today = new Date().toISOString().slice(0, 10);
-      if (advanceDiff > 0) {
-        await financeService.create({
-          direction:        'in',
-          category:         'payment_advance',
-          amount:           advanceDiff,
-          description:      `Կանխավճար — ${task.taskId}`,
-          transaction_date: advanceDate || today,
-          task:             Number(task.id),
-        });
-      }
-      if (finalDiff > 0) {
-        await financeService.create({
-          direction:        'in',
-          category:         'payment_final',
-          amount:           finalDiff,
-          description:      `Վերջնավճար — ${task.taskId}`,
-          transaction_date: finalDate || today,
-          task:             Number(task.id),
-        });
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['finance-transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['finance-summary'] });
       setEditing(false);
       onClose();
     },
     onError: (err: Error) => setSaveError(err.message),
   });
 
-  const [confirmComplete, setConfirmComplete] = useState(false);
-  const [invoiceLoading,  setInvoiceLoading]  = useState(false);
-  const [invoiceError,    setInvoiceError]    = useState('');
+  const [sendToDelivery,      setSendToDelivery]      = useState(false);
+  const [sendDeliveryAddr,    setSendDeliveryAddr]    = useState('');
+  const [sendDeliveryRecip,   setSendDeliveryRecip]   = useState('');
+  const [sendDeliveryNotes,   setSendDeliveryNotes]   = useState('');
+  const [invoiceLoading,      setInvoiceLoading]      = useState(false);
+  const [invoiceError,        setInvoiceError]        = useState('');
 
   async function handleInvoice() {
     setInvoiceLoading(true);
@@ -281,40 +257,29 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
     }
   }
 
-  const { mutate: completeMutate, isPending: isCompleting } = useMutation({
+  const { mutate: sendDeliveryMutate, isPending: isSendingDelivery } = useMutation({
     mutationFn: async () => {
-      // 1. Archive the task
-      await taskService.update(task.id, { section: 'archive' as 'active' });
-
-      // 2. Calculate remaining debt
-      const total     = parseFloat(task.price          ?? '0') || 0;
-      const advance   = parseFloat(task.advancePayment ?? '0') || 0;
-      const final     = parseFloat(task.finalPayment   ?? '0') || 0;
-      const remaining = +(total - advance - final).toFixed(2);
-
-      // 3. If debt remains → create debt (even without clientLinkId if possible)
-      if (remaining > 0) {
-        const clientId = task.clientLinkId ?? null;
-        if (clientId) {
-          try {
-            await debtService.create({
-              client:  clientId,
-              task:    Number(task.id),
-              amount:  String(remaining),
-              paid:    '0',
-              status:  'pending',
-              notes:   `Патвер ${task.taskId}`,
-            });
-          } catch {
-            // Debt creation failed — archive still succeeded
-          }
-        }
+      const existingDelivery = task.delivery;
+      if (existingDelivery) {
+        await deliveryService.update(existingDelivery.id, {
+          address:       sendDeliveryAddr.trim()  || undefined,
+          recipientName: sendDeliveryRecip.trim() || undefined,
+          notes:         sendDeliveryNotes.trim() || undefined,
+        });
+      } else {
+        await deliveryService.create({
+          task:          taskNumericId,
+          address:       sendDeliveryAddr.trim() || task.deliveryAddress || '',
+          recipientName: sendDeliveryRecip.trim() || undefined,
+          notes:         sendDeliveryNotes.trim() || undefined,
+        });
       }
+      await taskService.update(task.id, { deliveryConfirmed: true });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['debt-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['deliveries'] });
+      setSendToDelivery(false);
       onClose();
     },
     onError: (err: Error) => setSaveError(err.message),
@@ -326,6 +291,7 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
     staleTime: 5 * 60 * 1000,
   });
   const statuses = statusData?.results ?? [];
+  const isLastStatus = statuses.length > 0 && String(statuses[statuses.length - 1].id) === String(task.status);
 
   const [currentStatus,   setCurrentStatus]   = useState(String(task.status));
   const [pendingStatusId, setPendingStatusId] = useState<number | null>(null);
@@ -349,6 +315,8 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
     queryFn:  () => attachmentService.getAll(task.id),
     staleTime: 0,
   });
+
+  const taskNumericId = Number((task as unknown as Record<string, unknown>).id ?? 0);
 
   async function handleAttachUpload(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -391,31 +359,100 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
     },
   });
 
+  const [archiveConfirm,   setArchiveConfirm]   = useState(false);
+  const [archivePayAmt,    setArchivePayAmt]    = useState('');
+  const [archivePayMethod, setArchivePayMethod] = useState<'cash' | 'card'>('cash');
+
+  const { data: costSummary, isLoading: costLoading } = useQuery({
+    queryKey: ['cost-summary', task.id],
+    queryFn:  () => taskService.getCostSummary(task.id),
+    enabled:  archiveConfirm,
+  });
+
+  const balanceDue = parseFloat(costSummary?.balance_due ?? '0') || 0;
+
+  const { mutate: archiveTask, isPending: isArchiving } = useMutation({
+    mutationFn: async ({ addDebt }: { addDebt: boolean }) => {
+      const payAmt = parseFloat(archivePayAmt) || 0;
+      if (payAmt > 0) {
+        await taskService.addPayment(task.id, {
+          amount:        payAmt,
+          paymentType:   'final',
+          paymentMethod: archivePayMethod,
+        });
+      }
+      if (addDebt) {
+        const remaining = Math.max(0, balanceDue - payAmt);
+        if (remaining > 0 && task.clientLinkId) {
+          await debtService.create({
+            client: task.clientLinkId,
+            title:  `${task.taskId} — ${task.name}`,
+            task:   Number(task.id),
+            amount: String(remaining),
+            notes:  `${task.taskId} — ${task.name}`,
+          });
+        }
+      }
+      if (task.delivery?.id) {
+        await deliveryService.delete(task.delivery.id);
+      }
+      await taskService.update(task.id, { section: 'archive' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'my'] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['deliveries'] });
+      queryClient.invalidateQueries({ queryKey: ['delivery-stats'] });
+      onClose();
+    },
+  });
+
   const { mutate: removeComment } = useMutation({
     mutationFn: (commentId: number) => taskService.deleteComment(task.id, commentId),
     onSuccess: () => refetchComments(),
   });
 
+  const { mutate: doMarkStarted, isPending: isMarkingStarted } = useMutation({
+    mutationFn: ({ userId, isStarted }: { userId: number; isStarted: boolean }) =>
+      taskService.markStarted(task.id, userId, isStarted),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'my'] });
+    },
+  });
+
+  const { mutate: doMarkDone, isPending: isMarkingDone } = useMutation({
+    mutationFn: ({ userId, isDone }: { userId: number; isDone: boolean }) =>
+      taskService.markDone(task.id, userId, isDone),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'my'] });
+    },
+  });
+
   const [client,          setClient]   = useState('');
   const [clientId,        setClientId] = useState(task.client          ?? '');
   const [phone,           setPhone]    = useState(task.phone           ?? '');
+  const [passportSeries,  setPassport] = useState(task.passportSeries  ?? '');
   const [acceptanceDate,  setAccDate]  = useState(task.acceptanceDate  ?? '');
   const [deliveryAddress, setAddress]  = useState(task.deliveryAddress ?? '');
+  const [clientNotes,     setClientNotes] = useState(task.description  ?? '');
   const [model,           setModel]    = useState(task.model           ?? '');
   const [dimensions,      setDims]     = useState(task.dimensions      ?? '');
   const [fabricType,      setFabric]   = useState(task.fabricTypeId != null ? String(task.fabricTypeId) : '');
   const [softness,        setSoftness] = useState(task.softnessId  != null ? String(task.softnessId)  : '');
   const [price,           setPrice]    = useState(task.price           ?? '');
-  const [advancePayment,       setAdvance]        = useState(task.advancePayment       ?? '');
-  const [advancePaymentDate,   setAdvanceDate]    = useState(task.advancePaymentDate   ?? '');
-  const [advancePaymentMethod, setAdvanceMethod]  = useState<'card' | 'cash' | ''>(task.advancePaymentMethod ?? '');
-  const [finalPayment,         setFinal]          = useState(task.finalPayment         ?? '');
-  const [finalPaymentDate,     setFinalDate]      = useState(task.finalPaymentDate     ?? '');
-  const [finalPaymentMethod,   setFinalMethod]    = useState<'card' | 'cash' | ''>(task.finalPaymentMethod   ?? '');
   const [deadline,        setDeadline] = useState(task.deadline        ?? '');
   const [priority,        setPriority] = useState<TaskPriority>(task.priority);
-  const [notes,           setNotes]    = useState(task.notes ?? task.description ?? '');
+  const [notes,           setNotes]    = useState(task.notes ?? '');
   const [assigneeRows,    setAssigneeRows] = useState<AssigneeRow[]>(() => initRows(task));
+  const [addingPayment, setAddingPayment] = useState(false);
+  const [newPayAmt,     setNewPayAmt]     = useState('');
+  const [newPayType,    setNewPayType]    = useState<'advance' | 'partial' | 'final' | 'other'>('advance');
+  const [newPayMethod,  setNewPayMethod]  = useState<'cash' | 'card'>('cash');
+  const [newPayDate,    setNewPayDate]    = useState('');
+  const [newPayNote,    setNewPayNote]    = useState('');
 
   function updateRow(key: string, patch: Partial<AssigneeRow>) {
     setAssigneeRows((r) => r.map((x) => x.key === key ? { ...x, ...patch } : x));
@@ -438,6 +475,19 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
     queryFn:  clientService.getAll,
     staleTime: 5 * 60 * 1000,
   });
+
+  const linkedClient: ClientDTO | undefined = task.clientLinkId
+    ? clients.find((c) => c.id === task.clientLinkId)
+    : clients.find((c) => {
+        const num = Number(task.client);
+        return !isNaN(num) && num > 0 && c.id === num;
+      });
+
+  useEffect(() => {
+    if (!linkedClient) return;
+    if (linkedClient.id_document) setPassport(linkedClient.id_document);
+    if (linkedClient.description) setClientNotes(linkedClient.description);
+  }, [linkedClient?.id]);
 
   function resolveClientName(clientIdOrName: string | undefined): string {
     if (!clientIdOrName) return '—';
@@ -463,6 +513,43 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
     staleTime: 10 * 60 * 1000,
   });
 
+  const { data: taskPayments = [], refetch: refetchPayments } = useQuery({
+    queryKey: ['task-payments', task.id],
+    queryFn:  () => taskService.listPayments(task.id),
+    initialData: (task.payments ?? []) as TaskPayment[],
+    staleTime: 0,
+  });
+
+  const { mutate: addPaymentMutate, isPending: isAddingPayment } = useMutation({
+    mutationFn: () => taskService.addPayment(task.id, {
+      amount:        Number(newPayAmt),
+      paymentType:   newPayType,
+      paymentMethod: newPayMethod,
+      paidAt:        newPayDate ? new Date(newPayDate).toISOString() : undefined,
+      note:          newPayNote.trim() || undefined,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      refetchPayments();
+      setAddingPayment(false);
+      setNewPayAmt('');
+      setNewPayType('advance');
+      setNewPayMethod('cash');
+      setNewPayDate('');
+      setNewPayNote('');
+    },
+    onError: (err: Error) => setSaveError(err.message),
+  });
+
+  const { mutate: deletePaymentMutate } = useMutation({
+    mutationFn: (paymentId: number) => taskService.removePayment(task.id, paymentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      refetchPayments();
+    },
+    onError: (err: Error) => setSaveError(err.message),
+  });
+
   const { data: softnessLevels = [] } = useQuery({
     queryKey: ['softness-levels'],
     queryFn:  softnessService.getAll,
@@ -472,17 +559,13 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
   function handleSave() {
     setSaveError('');
     const firstRow = assigneeRows[0];
-
-    const oldAdvance = parseFloat(task.advancePayment || '0') || 0;
-    const newAdvance = parseFloat(advancePayment      || '0') || 0;
-    const oldFinal   = parseFloat(task.finalPayment   || '0') || 0;
-    const newFinal   = parseFloat(finalPayment        || '0') || 0;
-
     mutate({
       taskData: {
         name:            (client.trim() || task.name) + (model.trim() ? ` — ${model.trim()}` : ''),
         client:          clientId.trim()        || undefined,
         phone:           phone.trim()           || undefined,
+        passportSeries:  passportSeries.trim()  || undefined,
+        description:     clientNotes.trim()     || undefined,
         acceptanceDate:  acceptanceDate         || undefined,
         deliveryAddress: deliveryAddress.trim() || undefined,
         model:           model.trim()           || undefined,
@@ -490,12 +573,6 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
         fabricTypeId:    fabricType ? Number(fabricType) : null,
         softnessId:      softness   ? Number(softness)   : null,
         price:           price.trim()           || undefined,
-        advancePayment:       advancePayment.trim()       || undefined,
-        advancePaymentDate:   advancePaymentDate          || undefined,
-        advancePaymentMethod: advancePaymentMethod        || undefined,
-        finalPayment:         finalPayment.trim()         || undefined,
-        finalPaymentDate:     finalPaymentDate            || undefined,
-        finalPaymentMethod:   finalPaymentMethod          || undefined,
         deadline:        deadline               || undefined,
         priority,
         notes:           notes.trim()           || undefined,
@@ -503,16 +580,10 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
         assignees: assigneeRows
           .filter((r) => r.assigneeId)
           .map((r) => ({
-            user:          Number(r.assigneeId),
-            salary_amount: r.payment.trim() || '0',
-            is_paid:       false,
-            paid_at:       null,
+            userId:       Number(r.assigneeId),
+            salaryAmount: r.payment.trim() || undefined,
           })),
       },
-      advanceDiff: Math.max(0, +(newAdvance - oldAdvance).toFixed(2)),
-      finalDiff:   Math.max(0, +(newFinal   - oldFinal  ).toFixed(2)),
-      advanceDate: advancePaymentDate,
-      finalDate:   finalPaymentDate,
     });
   }
 
@@ -520,18 +591,18 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
     setClient(resolveClientName(task.client) === '—' ? '' : resolveClientName(task.client));
     setClientId(task.client ?? '');
     setPhone(task.phone ?? '');
+    setPassport(linkedClient?.id_document || task.passportSeries || '');
     setAccDate(task.acceptanceDate ?? '');
     setAddress(task.deliveryAddress ?? '');
+    setClientNotes(linkedClient?.description || task.description || '');
     setModel(task.model ?? '');
     setDims(task.dimensions ?? '');
     setFabric(task.fabricTypeId != null ? String(task.fabricTypeId) : '');
     setSoftness(task.softnessId  != null ? String(task.softnessId)  : '');
     setPrice(task.price ?? '');
-    setAdvance(task.advancePayment ?? '');
-    setFinal(task.finalPayment ?? '');
     setDeadline(task.deadline ?? '');
     setPriority(task.priority);
-    setNotes(task.notes ?? task.description ?? '');
+    setNotes(task.notes ?? '');
     setAssigneeRows(initRows(task));
     setEditing(false);
   }
@@ -557,7 +628,9 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
                   {task.taskId}
                 </span>
                 {task.createdAt && (
-                  <span className="text-xs text-text-muted">{task.createdAt}</span>
+                  <span className="text-xs text-text-muted">
+                    {new Date(task.createdAt).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+                  </span>
                 )}
                 {projectName && (
                   <span className="text-xs text-text-muted">· {projectName}</span>
@@ -576,7 +649,7 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
           </div>
 
           {/* Row 2: action buttons */}
-          {!editing && (
+          {!editing && !isEmployee && (
             <div className="flex items-center gap-1.5 flex-wrap">
               {task.section === 'archive' && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-success/10 text-success">
@@ -602,18 +675,33 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
               {task.section !== 'archive' && (
                 <>
                   <button
-                    onClick={() => setConfirmComplete(true)}
-                    disabled={isCompleting}
-                    className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-success/10 text-success hover:bg-success/20 transition-colors disabled:opacity-40"
-                  >
-                    {isCompleting ? '...' : 'Կատարվել'}
-                  </button>
-                  <button
                     onClick={() => setEditing(true)}
                     className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-crm-border text-dark hover:bg-gray-50 transition-colors"
                   >
                     Խմբագրել
                   </button>
+                  {allowSendDelivery && isLastStatus && (
+                    <button
+                      onClick={() => {
+                        setSendDeliveryAddr(task.delivery?.address || task.deliveryAddress || '');
+                        setSendDeliveryRecip(task.delivery?.recipientName || resolveClientName(task.client));
+                        setSendDeliveryNotes('');
+                        setSendToDelivery(true);
+                      }}
+                      disabled={isSendingDelivery}
+                      className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-40"
+                    >
+                      {isSendingDelivery ? '...' : task.delivery ? 'Թnrgrlu Arakvman' : 'Ուղղarkel Arakvman'}
+                    </button>
+                  )}
+                  {allowArchive && (
+                    <button
+                      onClick={() => { setArchiveConfirm(true); setArchivePayAmt(''); }}
+                      className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-crm-border text-text-muted hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                    >
+                      Կատարված
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -627,6 +715,7 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
           <div className="flex flex-col gap-3">
             <SectionTitle icon="👤">Պատվիրատու</SectionTitle>
             {editing ? (
+              <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <EditField label="Անուն Ազգանուն">
                   <ClientAutocomplete
@@ -648,13 +737,22 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
                 <EditField label="Առաքման հասցե">
                   <input value={deliveryAddress} onChange={(e) => setAddress(e.target.value)} className={inputCls()} />
                 </EditField>
+                <EditField label="Անձնագրի Սերիա">
+                  <input value={passportSeries} onChange={(e) => setPassport(e.target.value)} placeholder="AB 1234567..." className={inputCls()} />
+                </EditField>
               </div>
+              <EditField label="Հաճախորդի նշումներ">
+                <textarea value={clientNotes} onChange={(e) => setClientNotes(e.target.value)} rows={2} className={inputCls() + " resize-none mt-2"} />
+              </EditField>
+              </>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <MetaCell label="Անուն Ազգանուն">{resolveClientName(task.client)}</MetaCell>
                 <MetaCell label="Հեռախոսահամար">{task.phone || '—'}</MetaCell>
-                <MetaCell label="Ընդունման ամսաթիվ">{task.acceptanceDate || '—'}</MetaCell>
+                <MetaCell label="Ընդունման ամսաթիվը">{task.acceptanceDate ? new Date(task.acceptanceDate).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'}</MetaCell>
                 <MetaCell label="Առաքման հասցե">{task.deliveryAddress || '—'}</MetaCell>
+                <MetaCell label="Անձնագրերի սերիա">{linkedClient?.id_document || task.passportSeries || "—"}</MetaCell>
+                <MetaCell label="Հաճախորդի նշումներ">{linkedClient?.description || task.description || "—"}</MetaCell>
               </div>
             )}
           </div>
@@ -703,56 +801,15 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
             )}
           </div>
 
-          {/* ── Արժեք ── (employee-ն չի տեsnum) */}
+          {/* ── Arzhek ── */}
           {!isEmployee && <div className="flex flex-col gap-3">
             <SectionTitle icon="💰">Արժեք</SectionTitle>
             {editing ? (
               <div className="flex flex-col gap-3">
-                {/* Total price */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <EditField label="Ընդհանուր արժեք">
                     <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0 ֏" className={inputCls()} />
                   </EditField>
-                </div>
-
-                {/* Advance payment edit */}
-                <div className="rounded-xl border border-crm-border p-3">
-                  <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2.5">Կանխավճար</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <EditField label="Գումար">
-                      <input value={advancePayment} onChange={(e) => setAdvance(e.target.value)} placeholder="0 ֏" className={inputCls()} />
-                    </EditField>
-                    <EditField label="Ամսաթիվ">
-                      <input type="date" value={advancePaymentDate} onChange={(e) => setAdvanceDate(e.target.value)} className={inputCls()} />
-                    </EditField>
-                    <EditField label="Վչարման մեթոդ">
-                      <select value={advancePaymentMethod} onChange={(e) => setAdvanceMethod(e.target.value as 'card' | 'cash' | '')} className={inputCls()}>
-                        <option value="">—</option>
-                        <option value="card">💳 Qartov</option>
-                        <option value="cash">💵 Kankhik</option>
-                      </select>
-                    </EditField>
-                  </div>
-                </div>
-
-                {/* Final payment edit */}
-                <div className="rounded-xl border border-crm-border p-3">
-                  <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2.5">Վեռջնավչար</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <EditField label="Գումար">
-                      <input value={finalPayment} onChange={(e) => setFinal(e.target.value)} placeholder="0 ֏" className={inputCls()} />
-                    </EditField>
-                    <EditField label="Ամսաթիվ">
-                      <input type="date" value={finalPaymentDate} onChange={(e) => setFinalDate(e.target.value)} className={inputCls()} />
-                    </EditField>
-                    <EditField label="Վչարման մեթոդ">
-                      <select value={finalPaymentMethod} onChange={(e) => setFinalMethod(e.target.value as 'card' | 'cash' | '')} className={inputCls()}>
-                        <option value="">—</option>
-                        <option value="card">💳 Qartov</option>
-                        <option value="cash">💵 Kankhik</option>
-                      </select>
-                    </EditField>
-                  </div>
                 </div>
               </div>
             ) : (
@@ -762,25 +819,141 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
                   <MetaCell label="Ընդհանուր արժեք" accent="success">{task.price || '—'}</MetaCell>
                 </div>
 
-                {/* Advance payment block */}
+                {/* Payments list */}
                 <div className="rounded-xl border border-crm-border p-3">
-                  <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2">Կանխավճար</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <MetaCell label="Գումար" accent="primary">{task.advancePayment || '—'}</MetaCell>
-                    <MetaCell label="Ամսաթիվ">{task.advancePaymentDate ? new Date(task.advancePaymentDate).toLocaleDateString('ru-RU') : '—'}</MetaCell>
-                    <MetaCell label="Վչարման մեթոդ">{task.advancePaymentMethod === 'card' ? '💳 Qartov' : task.advancePaymentMethod === 'cash' ? '💵 Kankhik' : '—'}</MetaCell>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Վճարումներ</p>
+                    {!addingPayment && (
+                      <button
+                        onClick={() => { setAddingPayment(true); setNewPayDate(new Date().toISOString().slice(0, 16)); }}
+                        className="flex items-center gap-1 text-xs text-primary hover:text-primary-hover font-semibold transition-colors"
+                      >
+                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Ավելացնել
+                      </button>
+                    )}
                   </div>
+                  {(() => {
+                    // Legacy rows from old task fields (if not already in taskPayments)
+                    const legacyRows: { key: string; label: string; cls: string; amount: number; date?: string; method?: string }[] = [];
+                    const advAmt = parseFloat(task.advancePayment ?? '0') || 0;
+                    const finAmt = parseFloat(task.finalPayment   ?? '0') || 0;
+                    if (advAmt > 0) legacyRows.push({ key: 'legacy-adv', label: 'Կանխավճար', cls: 'bg-blue-100 text-blue-700', amount: advAmt, date: task.advancePaymentDate, method: task.advancePaymentMethod });
+                    if (finAmt > 0) legacyRows.push({ key: 'legacy-fin', label: 'Վերջնացճար',   cls: 'bg-green-100 text-green-700', amount: finAmt, date: task.finalPaymentDate,   method: task.finalPaymentMethod   });
+                    const allRows = [
+                      ...legacyRows.map(r => ({ ...r, isLegacy: true as const })),
+                      ...taskPayments.map(p => ({ ...p, isLegacy: false as const })),
+                    ].sort((a, b) => {
+                      const da = 'paidAt' in a ? a.paidAt : (a.date ?? '');
+                      const db = 'paidAt' in b ? b.paidAt : (b.date ?? '');
+                      return new Date(da).getTime() - new Date(db).getTime();
+                    });
+                    if (allRows.length === 0 && !addingPayment) return <p className="text-xs text-text-muted text-center py-1">—</p>;
+                    return (
+                      <div className="flex flex-col gap-0">
+                        {allRows.map((row) => {
+                          if (row.isLegacy) {
+                            const r = row as typeof legacyRows[0] & { isLegacy: true };
+                            return (
+                              <div key={r.key} className="flex items-center gap-2 text-xs py-1.5 border-b border-crm-border/30 last:border-b-0 opacity-70">
+                                <span className={`flex-shrink-0 px-1.5 py-0.5 rounded-md font-semibold text-[10px] ${r.cls}`}>{r.label}</span>
+                                <span className="font-bold text-dark">{r.amount.toLocaleString()}&#1423;</span>
+                                {r.date && <span className="text-text-muted">{new Date(r.date).toLocaleDateString('ru-RU')}</span>}
+                                {r.method && <span className="text-text-muted flex-shrink-0">{r.method === 'cash' ? '💵' : '💳'}</span>}
+                              </div>
+                            );
+                          }
+                          const p = row as TaskPayment & { isLegacy: false };
+                          const typeLabel = ({ advance: 'Կանխավճար', partial: 'Միջնավճար', final: 'Verdjnits', other: 'Ayl' } as Record<string, string>)[p.paymentType] ?? p.paymentType;
+                          const typeCls = ({ advance: 'bg-blue-100 text-blue-700', partial: 'bg-amber-100 text-amber-700', final: 'bg-green-100 text-green-700', other: 'bg-gray-100 text-gray-600' } as Record<string, string>)[p.paymentType] ?? 'bg-gray-100 text-gray-600';
+                          return (
+                            <div key={p.id} className="flex items-center gap-2 text-xs py-1.5 border-b border-crm-border/30 last:border-b-0">
+                              <span className={`flex-shrink-0 px-1.5 py-0.5 rounded-md font-semibold text-[10px] ${typeCls}`}>{typeLabel}</span>
+                              <span className="font-bold text-dark">{Number(p.amount).toLocaleString()}&#1423;</span>
+                              <span className="text-text-muted">{new Date(p.paidAt).toLocaleDateString('ru-RU')}</span>
+                              <span className="text-text-muted flex-shrink-0">{p.paymentMethod === 'cash' ? '💵' : '💳'}</span>
+                              {p.note && <span className="text-text-muted truncate flex-1 min-w-0">{p.note}</span>}
+                              <button
+                                onClick={() => deletePaymentMutate(p.id)}
+                                className="ml-auto flex-shrink-0 p-0.5 text-text-muted hover:text-error rounded transition-colors"
+                              >
+                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Add payment inline form */}
+                  {addingPayment && (
+                    <div className="mt-3 pt-3 border-t border-crm-border flex flex-col gap-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-1">
+                          <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Գումար</p>
+                          <input value={newPayAmt} onChange={(e) => setNewPayAmt(e.target.value)} placeholder="0 ֏" className={inputCls()} />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Վճարում</p>
+                          <select value={newPayType} onChange={(e) => setNewPayType(e.target.value as typeof newPayType)} className={inputCls()}>
+                            <option value="advance">Կանխավճար</option>
+                            <option value="partial">Միջնավճար</option>
+                            <option value="final">Վերջնավճար</option>
+                            <option value="other">Այլ</option>
+                          </select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Մեթոդ</p>
+                          <select value={newPayMethod} onChange={(e) => setNewPayMethod(e.target.value as 'cash' | 'card')} className={inputCls()}>
+                            <option value="cash">💵 Կանխիկ</option>
+                            <option value="card">💳 Քարտով</option>
+                          </select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Ամսաթիվ</p>
+                          <input type="datetime-local" value={newPayDate} onChange={(e) => setNewPayDate(e.target.value)} className={inputCls()} />
+                        </div>
+                      </div>
+                      <input value={newPayNote} onChange={(e) => setNewPayNote(e.target.value)} placeholder="Նշում..." className={inputCls()} />
+                      {saveError && <p className="text-xs text-error">{saveError}</p>}
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={() => { setAddingPayment(false); setSaveError(''); }} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-crm-border text-dark hover:bg-gray-50 transition-colors">Chegharkel</button>
+                        <button onClick={() => addPaymentMutate()} disabled={isAddingPayment || !newPayAmt.trim()} className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-60">
+                          {isAddingPayment ? '...' : 'Kazmakerpel'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Final payment block */}
-                <div className="rounded-xl border border-crm-border p-3">
-                  <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2">Վեռջնավչար</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <MetaCell label="Գումար">{task.finalPayment || '—'}</MetaCell>
-                    <MetaCell label="Ամսաթիվ">{task.finalPaymentDate ? new Date(task.finalPaymentDate).toLocaleDateString('ru-RU') : '—'}</MetaCell>
-                    <MetaCell label="Վչարման մեթոդ">{task.finalPaymentMethod === 'card' ? '💳 Qartov' : task.finalPaymentMethod === 'cash' ? '💵 Kankhik' : '—'}</MetaCell>
-                  </div>
-                </div>
+                {/* Debt summary */}
+                {(() => {
+                  const total = parseFloat(task.price ?? '0') || 0;
+                  // Use backend totalPaid if >0, else sum legacy fields + new payments
+                  const backendPaid = parseFloat(task.totalPaid ?? '0') || 0;
+                  const legacyPaid = (parseFloat(task.advancePayment ?? '0') || 0) + (parseFloat(task.finalPayment ?? '0') || 0);
+                  const newPaysPaid = taskPayments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+                  const paid = backendPaid > 0 ? backendPaid : legacyPaid + newPaysPaid;
+                  const rawDebt = parseFloat(task.balanceDue ?? '');
+                  const computedDebt = (!isNaN(rawDebt) && (backendPaid > 0 || rawDebt === 0)) ? rawDebt : Math.max(0, total - paid);
+                  if (total === 0) return null;
+                  return (
+                    <div className={`rounded-xl border-2 p-4 flex items-center justify-between gap-4 ${computedDebt <= 0 ? 'border-success/40 bg-success/5' : 'border-error/30 bg-error/5'}`}>
+                      <div className="flex flex-col gap-1 text-xs text-text-muted">
+                        <span>{total.toLocaleString()}&#1423; Ընդհանուր արժեք</span>
+                        <span className="text-success">&#x2212; {paid.toLocaleString()}&#1423; Պարտք</span>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-0.5">Մնացորդ</p>
+                        <p className={`text-2xl font-bold ${computedDebt <= 0 ? 'text-success' : 'text-error'}`}>
+                          {computedDebt <= 0 ? '0' : computedDebt.toLocaleString()}&#1423;
+                        </p>
+                        {computedDebt <= 0 && <p className="text-[10px] text-success font-semibold mt-0.5">&#x531;&#x574;&#x562;&#x578;&#x572;&#x57B;&#x578;&#x582;&#x569;&#x575;&#x561;&#x574;&#x562; &#x539;&#x279;&#x561;&#x580;&#x57E;&#x561;&#x56E; &#x2713; 8888</p>}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>}
@@ -843,7 +1016,7 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
                   <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                   </svg>
-                Կatarvatз
+                Կատարող
                 </button>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -866,18 +1039,53 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
                   <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2">Կատարողներ</p>
                   {(task.assignees && task.assignees.length > 0) ? (
                     <div className="flex flex-col gap-2">
-                      {task.assignees.map((a) => (
-                        <div key={a.id} className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <Avatar color={a.color} initials={a.initials} size="sm" />
-                            <span className="text-sm font-medium text-dark truncate">{a.name}</span>
+                      {task.assignees.map((a) => {
+                        const isMe     = myUserId === a.userId;
+                        const canAct   = isEmployee ? isMe : false;
+                        const busy     = isMarkingStarted || isMarkingDone;
+                        return (
+                          <div key={a.id} className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Avatar color={a.color} initials={a.initials} size="sm" />
+                              <div className="min-w-0">
+                                <span className="text-sm font-medium text-dark truncate block">{a.name}</span>
+                                {a.isDone ? (
+                                  <span className="text-[10px] text-success font-semibold">✓ Ավարտված</span>
+                                ) : a.isStarted ? (
+                                  <span className="text-[10px] text-primary font-semibold">▶ Սկսած</span>
+                                ) : (
+                                  <span className="text-[10px] text-text-muted">Չսկսած</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {!a.isDone && !a.isStarted && canAct && (
+                                <button
+                                  disabled={busy}
+                                  onClick={() => doMarkStarted({ userId: a.userId, isStarted: true })}
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-40"
+                                >
+                                  Սկсел
+                                </button>
+                              )}
+                              {a.isStarted && !a.isDone && canAct && (
+                                <button
+                                  disabled={busy}
+                                  onClick={() => doMarkDone({ userId: a.userId, isDone: true })}
+                                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-success/10 text-success hover:bg-success/20 transition-colors disabled:opacity-40"
+                                >
+                                  Ավарtel
+                                </button>
+                              )}
+                              {a.isPaid && Number(a.salaryAmount) > 0 && (
+                                <span className={`text-xs font-semibold ${a.isPaid ? 'text-success' : 'text-primary'}`}>
+                                  {Number(a.salaryAmount).toLocaleString()} ֏{a.isPaid && ' ✓'}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <span className={`text-sm font-semibold flex-shrink-0 ${a.isPaid ? 'text-success' : 'text-primary'}`}>
-                            {Number(a.salaryAmount).toLocaleString()} ֏
-                            {a.isPaid && <span className="ml-1 text-[10px]">✓</span>}
-                          </span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     (() => {
@@ -905,7 +1113,7 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
                     </span>
                   </div>
                   <MetaCell label="Վերջնաժամկետ" accent={task.deadline ? 'error' : undefined}>
-                    {task.deadline || '—'}
+                    {task.deadline ? new Date(task.deadline).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'}
                   </MetaCell>
                 </div>
                 {/* Stage selector */}
@@ -1035,9 +1243,9 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
                 className={inputCls() + ' resize-none'}
               />
             ) : (
-              (task.notes || task.description)
+              (task.notes)
                 ? <p className="text-sm text-dark leading-relaxed bg-gray-50 rounded-xl p-3 border border-gray-100">
-                    {task.notes || task.description}
+                    {task.notes}
                   </p>
                 : <p className="text-sm text-text-muted italic">—</p>
             )}
@@ -1165,51 +1373,164 @@ export default function TaskDetailModal({ task, projectName, onClose }: TaskDeta
         </div>
       </div>
 
-      {/* ── Confirm complete modal ── */}
-      {confirmComplete && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-[#161B27] rounded-2xl shadow-2xl p-6 w-[calc(100%-2rem)] max-w-sm flex flex-col gap-4 animate-fade-in">
-            <div className="flex flex-col gap-2">
-              <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-1">
-                <svg className="w-6 h-6 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12"/>
+      {/* ── Complete (archive) modal ── */}
+      {archiveConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-[calc(100%-2rem)] max-w-sm flex flex-col gap-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <p className="text-base font-bold text-dark">Կատարված նշե՞լ</p>
+              <button onClick={() => setArchiveConfirm(false)} className="w-6 h-6 flex items-center justify-center text-text-muted hover:text-dark text-sm">✕</button>
+            </div>
+            <p className="text-xs text-text-muted -mt-2">{task.taskId} · {task.name}</p>
+
+            {costLoading ? (
+              <p className="text-sm text-text-muted text-center py-2">Բեռնվում է...</p>
+            ) : (
+              <>
+                {/* Balance summary */}
+                <div className="rounded-xl border border-crm-border overflow-hidden">
+                  <div className="flex justify-between px-3 py-2 text-xs border-b border-crm-border/50">
+                    <span className="text-text-muted">Ընդհանուր արժեք</span>
+                    <span className="font-semibold text-dark">{Number(costSummary?.price ?? 0).toLocaleString()} ֏</span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2 text-xs border-b border-crm-border/50">
+                    <span className="text-text-muted">Վճարված</span>
+                    <span className="font-semibold text-success">{Number(costSummary?.total_received ?? 0).toLocaleString()} ֏</span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2 text-xs">
+                    <span className="text-text-muted">Մնացք</span>
+                    <span className={`font-bold ${balanceDue > 0 ? 'text-error' : 'text-success'}`}>
+                      {balanceDue > 0 ? `${balanceDue.toLocaleString()} ֏` : '✓ Լիովին վճ.'}
+                    </span>
+                  </div>
+                </div>
+
+                {balanceDue > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Վճարել հիմա (ոչ պարտ.)</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={archivePayAmt}
+                        onChange={(e) => setArchivePayAmt(e.target.value)}
+                        placeholder={`${balanceDue}`}
+                        className="flex-1 px-3 py-2 text-sm rounded-xl border border-crm-border outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white"
+                      />
+                      <select
+                        value={archivePayMethod}
+                        onChange={(e) => setArchivePayMethod(e.target.value as 'cash' | 'card')}
+                        className="px-2 py-2 text-sm rounded-xl border border-crm-border outline-none focus:border-primary bg-white"
+                      >
+                        <option value="cash">Կանխ.</option>
+                        <option value="card">Քարտ</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2 pt-1">
+                  {balanceDue > 0 ? (
+                    <>
+                      <button
+                        onClick={() => archiveTask({ addDebt: false })}
+                        disabled={isArchiving}
+                        className="w-full py-2 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-50"
+                      >
+                        {isArchiving ? '...' : parseFloat(archivePayAmt) > 0 ? 'Վճ. և կատարված' : 'Կատարված (առանց վճ.)'}
+                      </button>
+                      {task.clientLinkId && (
+                        <button
+                          onClick={() => archiveTask({ addDebt: true })}
+                          disabled={isArchiving}
+                          className="w-full py-2 text-sm font-semibold rounded-xl border border-error/40 text-error hover:bg-error/5 transition-colors disabled:opacity-50"
+                        >
+                          {isArchiving ? '...' : 'Ավ. պարտք և կատարված'}
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => archiveTask({ addDebt: false })}
+                      disabled={isArchiving}
+                      className="w-full py-2 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-50"
+                    >
+                      {isArchiving ? '...' : 'Կատարված'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setArchiveConfirm(false)}
+                    className="w-full py-2 text-sm font-medium rounded-xl border border-crm-border text-dark hover:bg-gray-50 transition-colors"
+                  >
+                    Չեղարկել
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Send to delivery modal ── */}
+      {sendToDelivery && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-[calc(100%-2rem)] max-w-sm flex flex-col gap-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <svg className="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+                  <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
                 </svg>
               </div>
-              <p className="text-base font-bold text-dark text-center">Կատարե՞լ Պատվերն</p>
-              {(() => {
-                const total     = parseFloat(task.price ?? '0') || 0;
-                const advance   = parseFloat(task.advancePayment ?? '0') || 0;
-                const final     = parseFloat(task.finalPayment ?? '0') || 0;
-                const remaining = total - advance - final;
-                return (
-                  <div className="text-sm text-text-muted text-center space-y-1">
-                    <p>Պատվերն կտելեափոխվի արխիվ</p>
-                    {remaining > 0 && task.clientLinkId ? (
-                      <p className="text-error font-semibold">
-                        {remaining.toLocaleString('ru-RU')} ֏ Ավտոմատիկ կգնա «Պառտքներ»-ը մեջ
-                      </p>
-                    ) : remaining > 0 && !task.clientLinkId ? (
-                      <p className="text-warning text-xs">Haչakhord kaծvac chy — patq chi srkvi</p>
-                    ) : total > 0 ? (
-                      <p className="text-success text-xs">Lriv vacharved e — patq chi srkvi</p>
-                    ) : null}
-                  </div>
-                );
-              })()}
+              <p className="text-base font-bold text-dark text-center">Ուղarkel Arakvman</p>
+              <p className="text-xs text-text-muted text-center">{task.taskId} · {resolveClientName(task.client)}</p>
             </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Arakvman hasце</p>
+                <input
+                  value={sendDeliveryAddr}
+                  onChange={(e) => setSendDeliveryAddr(e.target.value)}
+                  placeholder="Hasце..."
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-crm-border outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Ստautsi anun</p>
+                <input
+                  value={sendDeliveryRecip}
+                  onChange={(e) => setSendDeliveryRecip(e.target.value)}
+                  placeholder="Anun Azganun..."
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-crm-border outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Նշում</p>
+                <textarea
+                  value={sendDeliveryNotes}
+                  onChange={(e) => setSendDeliveryNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Lratsuchner..."
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-crm-border outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white resize-none"
+                />
+              </div>
+            </div>
+
+            {saveError && <p className="text-xs text-error text-center">{saveError}</p>}
+
             <div className="flex gap-2">
               <button
-                onClick={() => setConfirmComplete(false)}
+                onClick={() => { setSendToDelivery(false); setSaveError(''); }}
                 className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl border border-crm-border text-dark hover:bg-gray-50 transition-colors"
               >
-                Չեղարկել
+                Chegharkei
               </button>
               <button
-                onClick={() => { setConfirmComplete(false); completeMutate(); }}
-                disabled={isCompleting}
-                className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl bg-success text-white hover:bg-green-600 transition-colors disabled:opacity-60"
+                onClick={() => sendDeliveryMutate()}
+                disabled={isSendingDelivery}
+                className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-60"
               >
-                {isCompleting ? '...' : 'Հաստատել'}
+                {isSendingDelivery ? '...' : 'Ughargel'}
               </button>
             </div>
           </div>

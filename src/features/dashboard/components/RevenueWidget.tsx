@@ -18,7 +18,7 @@ export default function RevenueWidget({ dashboard }: { dashboard?: DashboardDTO 
   const rows = [
     { label: 'Ընդհանուր',  value: revenue,  cls: 'text-dark font-bold text-base' },
     { label: 'Ծախսեր',    value: expenses, cls: 'text-error font-semibold text-sm' },
-    { label: 'Սալդո',     value: balance,  cls: `${balance >= 0 ? 'text-success' : 'text-error'} font-semibold text-sm` },
+    { label: 'Վերջնական մնացորդ',     value: balance,  cls: `${balance >= 0 ? 'text-success' : 'text-error'} font-semibold text-sm` },
   ];
 
   const pct = revenue > 0 ? Math.min(Math.round((balance / revenue) * 100), 100) : 0;
@@ -53,7 +53,7 @@ export default function RevenueWidget({ dashboard }: { dashboard?: DashboardDTO 
               style={{ width: `${pct}%` }}
             />
           </div>
-          <p className="text-[11px] text-text-muted mt-1.5 text-right">{pct}% սալդո</p>
+          <p className="text-[11px] text-text-muted mt-1.5 text-right">{pct}% Վերջնական մնացորդ</p>
         </div>
       )}
     </div>

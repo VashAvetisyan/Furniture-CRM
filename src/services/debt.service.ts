@@ -82,6 +82,7 @@ export const debtService = {
 
   create(data: {
     client:    number;
+    title?:    string;
     task?:     number;
     amount:    string;
     paid?:     string;
@@ -100,7 +101,7 @@ export const debtService = {
     return request<void>(`/debts/clients/${id}/`, { method: 'DELETE' });
   },
 
-  pay(id: number, data: { amount: string; paid_at?: string; note?: string }) {
+  pay(id: number, data: { amount: string; paid_at?: string; note?: string; payment_method?: 'cash' | 'card' }) {
     return request<DebtPayment>(`/debts/clients/${id}/pay/`, { method: 'POST', body: data });
   },
 
@@ -125,7 +126,7 @@ export const supplierDebtService = {
     if (params?.status)   q.set('status',   params.status);
     if (params?.supplier) q.set('supplier', String(params.supplier));
     const qs = q.toString();
-    return request<SupplierDebtListResponse | SupplierDebtDTO[]>(`/debts/suppliers/${qs ? '?' + qs : ''}`);
+    return request<SupplierDebtListResponse | SupplierDebtDTO[]>(`/suppliers/debts/${qs ? '?' + qs : ''}`);
   },
 
   create(data: {
@@ -135,22 +136,22 @@ export const supplierDebtService = {
     due_date?: string;
     notes?:    string;
   }) {
-    return request<SupplierDebtDTO>('/debts/suppliers/', { method: 'POST', body: data });
+    return request<SupplierDebtDTO>('/suppliers/debts/', { method: 'POST', body: data });
   },
 
   update(id: number, data: Partial<SupplierDebtDTO>) {
-    return request<SupplierDebtDTO>(`/debts/suppliers/${id}/`, { method: 'PATCH', body: data });
+    return request<SupplierDebtDTO>(`/suppliers/debts/${id}/`, { method: 'PATCH', body: data });
   },
 
   delete(id: number) {
-    return request<void>(`/debts/suppliers/${id}/`, { method: 'DELETE' });
+    return request<void>(`/suppliers/debts/${id}/`, { method: 'DELETE' });
   },
 
-  pay(id: number, data: { amount: string; paid_at?: string; note?: string }) {
-    return request<DebtPayment>(`/debts/suppliers/${id}/pay/`, { method: 'POST', body: data });
+  pay(id: number, data: { amount: string; paid_at?: string; note?: string; payment_method?: 'cash' | 'card' }) {
+    return request<DebtPayment>(`/suppliers/debts/${id}/pay/`, { method: 'POST', body: data });
   },
 
   getPayments(id: number) {
-    return request<DebtPayment[]>(`/debts/suppliers/${id}/payments/`);
+    return request<DebtPayment[]>(`/suppliers/debts/${id}/payments/`);
   },
 };

@@ -1,4 +1,5 @@
-'use client';
+﻿'use client';
+import { SkTable } from '@/components/ui/Skeleton';
 
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -161,7 +162,7 @@ export default function WorkshopPage() {
       {/* Table */}
       <div className="flex-shrink-0">
         {isLoading ? (
-          <div className="flex items-center justify-center h-48 text-text-muted text-sm">Բեռնվում է...</div>
+          <div className="bg-white rounded-2xl border border-crm-border overflow-hidden p-4"><SkTable rows={6} cols={5} /></div>
         ) : transfers.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-52 gap-3 bg-white rounded-2xl border border-dashed border-crm-border">
             <svg className="w-10 h-10 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -262,3 +263,4 @@ export default function WorkshopPage() {
     </div>
   );
 }
+

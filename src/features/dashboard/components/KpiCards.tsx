@@ -1,6 +1,7 @@
 'use client';
 
 import type { DashboardDTO } from '@/services/task.service';
+import { SkStatCard } from '@/components/ui/Skeleton';
 
 function fmt(val?: string | number): number {
   if (typeof val === 'number') return val;
@@ -15,7 +16,15 @@ export default function KpiCards({
   dashboard?: DashboardDTO;
   isLoading?: boolean;
 }) {
-  const placeholder = isLoading ? '…' : '0';
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
+        {Array.from({ length: 4 }).map((_, i) => <SkStatCard key={i} />)}
+      </div>
+    );
+  }
+
+  const placeholder = '0';
 
   const cards = [
     {

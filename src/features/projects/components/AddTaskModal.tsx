@@ -6,9 +6,8 @@ import { taskService, taskStatusService, fabricTypeService, softnessService, att
 import type { NamedItemDTO } from '@/services/task.service';
 import { clientService } from '@/services/client.service';
 import type { ClientDTO, CreateClientRequest } from '@/services/client.service';
-import { financeService } from '@/services/finance.service';
 import { catalogService, type ProductDTO } from '@/services/catalog.service';
-import type { TaskPriority } from '../types';
+import { companySettingsService } from '@/services/companySettings.service';
 import type { PanelAssignee } from './ProjectsListPanel';
 
 interface AddTaskModalProps {
@@ -19,7 +18,6 @@ interface AddTaskModalProps {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PRIORITIES: TaskPriority[] = ['High', 'Medium', 'Low'];
 
 function inputCls(hasError = false) {
   return `w-full px-4 py-2.5 text-sm rounded-xl border outline-none transition-all bg-white ${
@@ -131,77 +129,62 @@ function ClientAutocomplete({ value, onChange, onSelect, hasError }: {
   );
 }
 
-// ── SelectWithAdd ─────────────────────────────────────────────────────────────
+// ── CreatableCombo ────────────────────────────────────────────────────────────
+// Text input with autocomplete dropdown. If the typed value doesn't match any
+// existing item, it shows a "will be created" hint and auto-creates on task save.
 
-function SelectWithAdd({ value, onChange, items, onCreate, queryKey }: {
-  value:    string;
-  onChange: (v: string) => void;
-  items:    NamedItemDTO[];
-  onCreate: (name: string) => Promise<NamedItemDTO>;
-  queryKey: string;
+function CreatableCombo({ items, id, name, onChange, placeholder }: {
+  items:       NamedItemDTO[];
+  id:          string;
+  name:        string;
+  onChange:    (id: string, name: string) => void;
+  placeholder?: string;
 }) {
-  const queryClient   = useQueryClient();
-  const [adding, setAdding] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [saving, setSaving]   = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
 
-  useEffect(() => { if (adding) inputRef.current?.focus(); }, [adding]);
+  const filtered = name.trim()
+    ? items.filter(i => i.name.toLowerCase().includes(name.toLowerCase()))
+    : items;
 
-  async function handleCreate() {
-    const name = newName.trim();
-    if (!name) { setAdding(false); return; }
-    setSaving(true);
-    try {
-      const created = await onCreate(name);
-      queryClient.invalidateQueries({ queryKey: [queryKey] });
-      onChange(String(created.id));
-    } finally {
-      setSaving(false);
-      setNewName('');
-      setAdding(false);
-    }
-  }
+  const isNew = name.trim() !== '' && !items.some(
+    i => i.name.toLowerCase() === name.trim().toLowerCase()
+  );
 
   return (
-    <div className="flex gap-1.5 items-center">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+    <div className="relative">
+      <input
+        value={name}
+        onChange={(e) => { onChange('', e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder={placeholder ?? 'Ընտրել կամ մուտքագրել...'}
         className={inputCls()}
-      >
-        <option value="">Ընտրել...</option>
-        {items.map((i) => <option key={i.id} value={String(i.id)}>{i.name}</option>)}
-      </select>
-
-      {adding ? (
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <input
-            ref={inputRef}
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleCreate();
-              if (e.key === 'Escape') { setAdding(false); setNewName(''); }
-            }}
-            disabled={saving}
-            placeholder="Անուն..."
-            className="w-24 px-2 py-1.5 text-xs rounded-lg border border-primary outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-50"
-          />
-          <button type="button" onClick={handleCreate} disabled={saving || !newName.trim()}
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-primary text-white text-xs hover:bg-primary-hover disabled:opacity-40 transition-colors flex-shrink-0"
-          >{saving ? '…' : '✓'}</button>
-          <button type="button" onClick={() => { setAdding(false); setNewName(''); }}
-            className="w-7 h-7 flex items-center justify-center rounded-full border border-crm-border text-text-muted hover:border-error hover:text-error text-xs transition-colors flex-shrink-0"
-          >✕</button>
+        autoComplete="off"
+      />
+      {open && (filtered.length > 0 || isNew) && (
+        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white border border-crm-border rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+          {filtered.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onChange(String(item.id), item.name); setOpen(false); }}
+              className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                id === String(item.id)
+                  ? 'bg-primary/5 text-primary font-semibold'
+                  : 'text-dark hover:bg-gray-50'
+              }`}
+            >
+              {item.name}
+            </button>
+          ))}
+          {isNew && (
+            <div className="px-3 py-2 text-xs border-t border-crm-border flex items-center gap-1.5 bg-gray-50/60 text-text-muted">
+              <span className="text-primary font-bold">+</span>
+              <span>«{name.trim()}» — կստեղծվի</span>
+            </div>
+          )}
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          title="Ավելացնել նոր"
-          className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl border-2 border-dashed border-crm-border text-text-muted hover:border-primary hover:text-primary transition-colors text-lg font-light"
-        >+</button>
       )}
     </div>
   );
@@ -250,6 +233,7 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
     staleTime: 5 * 60 * 1000,
   });
   const catalogProducts: ProductDTO[] = (() => {
+
     if (!catalogRaw) return [];
     if (Array.isArray(catalogRaw)) return catalogRaw;
     const r = (catalogRaw as { results?: unknown })?.results;
@@ -257,26 +241,77 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
   })();
 
 
+  const { data: companySettings } = useQuery({
+    queryKey: ['company-settings'],
+    queryFn:  companySettingsService.get,
+    staleTime: 60_000,
+  });
+
+  const defaultDeadline = (() => {
+    const days = companySettings?.default_completion_days;
+    if (!days || days <= 0) return '';
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+  })();
+
   const [client, setClient]           = useState('');
-  const [acceptanceDate, setAccDate]  = useState('');
+  const [acceptanceDate, setAccDate]  = useState(() => new Date().toISOString().slice(0, 16));
+  const [deadline, setDeadline]       = useState('');
+
+  useEffect(() => {
+    if (deadline === '' && defaultDeadline) setDeadline(defaultDeadline);
+  }, [defaultDeadline]);
+
+  function handleAcceptanceDate(date: string) {
+    setAccDate(date);
+    setAdvanceDate(date.slice(0, 16));
+    const days = companySettings?.default_completion_days ?? parseInt(localStorage.getItem('crm_default_deadline_days') ?? '');
+    if (date && days > 0) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + days);
+      setDeadline(d.toISOString().slice(0, 10));
+    }
+  }
   const [deliveryAddress, setAddress] = useState('');
   const [phone, setPhone]             = useState('');
+  const [passportSeries, setPassport] = useState('');
   const [model, setModel]             = useState('');
   const [modelQuery, setModelQuery]   = useState('');
   const [showModelDrop, setShowModelDrop] = useState(false);
   const [dimensions, setDimensions]   = useState('');
-  const [fabricType, setFabric]       = useState('');
-  const [softness, setSoftness]       = useState('');
+  const [fabricTypeId, setFabricTypeId]     = useState('');
+  const [fabricTypeName, setFabricTypeName] = useState('');
+  const [softnessId, setSoftnessId]         = useState('');
+  const [softnessName, setSoftnessName]     = useState('');
+  const [clientNotes, setClientNotes] = useState('');
   const [notes, setNotes]             = useState('');
-  const [deadline, setDeadline]       = useState('');
   const [price, setPrice]             = useState('');
   const [advancePayment, setAdvance]       = useState('');
-  const [advanceDate, setAdvanceDate]      = useState('');
+  const [advancePercent, setAdvancePct]    = useState(
+    () => localStorage.getItem('crm_default_advance_pct') ?? ''
+  );
+
+  useEffect(() => {
+    if (companySettings?.advance_payment_percent && !localStorage.getItem('crm_default_advance_pct')) {
+      setAdvancePct(String(companySettings.advance_payment_percent));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companySettings?.advance_payment_percent]);
+  const [advanceDate, setAdvanceDate]      = useState(() => new Date().toISOString().slice(0, 16));
   const [advanceMethod, setAdvanceMethod]  = useState<'card' | 'cash' | ''>('');
   const [finalPayment, setFinal]           = useState('');
   const [finalDate, setFinalDate]          = useState('');
   const [finalMethod, setFinalMethod]      = useState<'card' | 'cash' | ''>('');
-  const [priority, setPriority]       = useState<TaskPriority>('Medium');
+
+  type MidRow = { key: string; amount: string; date: string; method: 'card' | 'cash' | '' };
+  const newMidRow = (): MidRow => ({ key: Math.random().toString(36).slice(2), amount: '', date: '', method: '' });
+  const [midPayments, setMidPayments] = useState<MidRow[]>([]);
+  function addMidRow() { setMidPayments(r => [...r, newMidRow()]); }
+  function removeMidRow(key: string) { setMidPayments(r => r.filter(x => x.key !== key)); }
+  function updateMidRow(key: string, patch: Partial<MidRow>) {
+    setMidPayments(r => r.map(x => x.key === key ? { ...x, ...patch } : x));
+  }
   const [error, setError]             = useState('');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [uploading, setUploading]     = useState(false);
@@ -296,7 +331,12 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
     setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  const [assigneeRows, setAssigneeRows] = useState<AssigneeRow[]>([newRow(assignees[0]?.id ?? '')]);
+  const [assigneeRows, setAssigneeRows] = useState<AssigneeRow[]>([
+    newRow(assignees[0]?.id ?? ''),
+    newRow(),
+    newRow(),
+    newRow(),
+  ]);
 
   function updateRow(key: string, patch: Partial<AssigneeRow>) {
     setAssigneeRows((r) => r.map((x) => x.key === key ? { ...x, ...patch } : x));
@@ -314,8 +354,10 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
   function handleSelectClient(c: ClientDTO) {
     setSelectedClient(c);
     setClient(`${c.first_name} ${c.last_name}`.trim());
-    if (c.phone)   setPhone(c.phone);
-    if (c.address) setAddress(c.address);
+    if (c.phone)        setPhone(c.phone);
+    if (c.address)      setAddress(c.address);
+    if (c.id_document)  setPassport(c.id_document);
+    if (c.description)  setClientNotes(c.description);
     setError('');
   }
 
@@ -324,7 +366,6 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
   async function handleSave() {
     if (!client.trim()) { setError('Պատвiritatuyi anuny partadiр'); return; }
     const firstRow = assigneeRows[0];
-    if (!firstRow?.assigneeId) { setError('Yntreq kataroghi'); return; }
 
     // Capture files BEFORE any async work — avoids stale closure
     const filesToUpload = [...pendingFiles];
@@ -346,10 +387,12 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
           try {
             const [firstName, ...rest] = name.split(' ');
             const created = await clientService.create({
-              first_name: firstName ?? name,
-              last_name:  rest.join(' ') || undefined,
-              phone:      phone.trim()   || name,
-              address:    deliveryAddress.trim() || undefined,
+              first_name:  firstName ?? name,
+              last_name:   rest.join(' ') || undefined,
+              phone:       phone.trim()   || name,
+              address:     deliveryAddress.trim() || undefined,
+              id_document: passportSeries.trim()  || undefined,
+              description: clientNotes.trim()     || undefined,
             } as CreateClientRequest);
             clientId = created.id;
             queryClient.invalidateQueries({ queryKey: ['clients'] });
@@ -357,110 +400,127 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
         }
       }
 
-      // 2. Create task
+      // 1b. Patch existing client with passport / notes
+      if (clientId && (selectedClient || clients.find((c) => c.id === clientId))) {
+        const patch: Partial<{ id_document: string; description: string }> = {};
+        if (passportSeries.trim()) patch.id_document = passportSeries.trim();
+        if (clientNotes.trim())    patch.description  = clientNotes.trim();
+        if (Object.keys(patch).length) {
+          try { await clientService.update(clientId, patch); } catch { /* non-fatal */ }
+        }
+      }
+
+      // 2. Resolve creatable combos — create if typed value is new
+      let resolvedFabricId = fabricTypeId ? Number(fabricTypeId) : undefined;
+      if (fabricTypeName.trim() && !fabricTypeId) {
+        try {
+          const created = await fabricTypeService.create(fabricTypeName.trim());
+          queryClient.invalidateQueries({ queryKey: ['fabric-types'] });
+          resolvedFabricId = created.id;
+        } catch { /* skip */ }
+      }
+      let resolvedSoftnessId = softnessId ? Number(softnessId) : undefined;
+      if (softnessName.trim() && !softnessId) {
+        try {
+          const created = await softnessService.create(softnessName.trim());
+          queryClient.invalidateQueries({ queryKey: ['softness-levels'] });
+          resolvedSoftnessId = created.id;
+        } catch { /* skip */ }
+      }
+
+      // 3. Create task
       const taskName = client.trim() + (model.trim() ? ` — ${model.trim()}` : '');
       const createdTask = await taskService.create({
         name:            taskName,
         statusId:        firstStatusId !== undefined ? Number(firstStatusId) : undefined,
-        priority,
+        priority: 'Medium',
         section:         'active',
-        assigneeId:      firstRow.assigneeId,
-        client:          client.trim() || undefined,
+        assigneeId:      firstRow.assigneeId || undefined,
+        client:          client.trim()       || undefined,
         clientLinkId:    clientId != null ? Number(clientId) : undefined,
         phone:           phone.trim()           || undefined,
+        passportSeries:  passportSeries.trim()  || undefined,
         acceptanceDate:  acceptanceDate         || undefined,
         deliveryAddress: deliveryAddress.trim() || undefined,
         model:           model.trim()           || undefined,
         dimensions:      dimensions.trim()      || undefined,
-        fabricTypeId:    fabricType ? Number(fabricType) : undefined,
-        softnessId:      softness   ? Number(softness)   : undefined,
+        fabricTypeId:    resolvedFabricId,
+        softnessId:      resolvedSoftnessId,
         notes:           notes.trim()           || undefined,
         deadline:        deadline               || undefined,
         price:           price.trim()           || undefined,
-        advancePayment:       advancePayment.trim()  || undefined,
-        advancePaymentDate:   advanceDate            || undefined,
-        advancePaymentMethod: advanceMethod          || undefined,
-        finalPayment:         finalPayment.trim()    || undefined,
-        finalPaymentDate:     finalDate              || undefined,
-        finalPaymentMethod:   finalMethod            || undefined,
         assigneePayment: firstRow.payment.trim() || undefined,
         assignees: assigneeRows
           .filter((r) => r.assigneeId)
           .map((r) => ({
-            user:          Number(r.assigneeId),
-            salary_amount: r.payment.trim() || '0',
-            is_paid:       false,
-            paid_at:       null,
+            userId:       Number(r.assigneeId),
+            salaryAmount: r.payment.trim() || undefined,
           })),
       });
 
-      // 3. Finance transactions for advance / final payments
-      const rawTask   = createdTask as unknown as Record<string, unknown>;
-      const taskDbId  = rawTask?.id != null && Number(rawTask.id) > 0 ? Number(rawTask.id) : 0;
-      const taskLabel = String(rawTask?.taskId ?? '');
-      const today     = new Date().toISOString().slice(0, 10);
-
-      const advanceAmt = parseFloat(advancePayment || '0') || 0;
-      const finalAmt   = parseFloat(finalPayment   || '0') || 0;
-
-      if (advanceAmt > 0) {
+      // 4. Resolve numeric task ID for payments and attachments
+      const raw       = createdTask as unknown as Record<string, unknown>;
+      const taskIdStr = String(raw?.taskId ?? '');
+      let numericId   = raw?.id != null && Number(raw.id) > 0 ? Number(raw.id) : 0;
+      if (numericId === 0 && taskIdStr) {
         try {
-          await financeService.create({
-            direction:        'in',
-            category:         'payment_advance',
-            amount:           advanceAmt,
-            description:      `Կանխավճար — ${taskLabel}`,
-            transaction_date: advanceDate || today,
-            payment_method:   advanceMethod || undefined,
-            task:             taskDbId > 0 ? taskDbId : undefined,
-          });
-        } catch { /* transaction failure doesn't cancel task */ }
+          const found = await taskService.findByTaskId(taskIdStr);
+          const match = found?.results?.find((t) => t.taskId === taskIdStr);
+          if (match) numericId = Number((match as unknown as Record<string, unknown>).id ?? 0);
+        } catch { /* skip if lookup fails */ }
       }
 
-      if (finalAmt > 0) {
-        try {
-          await financeService.create({
-            direction:        'in',
-            category:         'payment_final',
-            amount:           finalAmt,
-            description:      `Վերջնավճար — ${taskLabel}`,
-            transaction_date: finalDate || today,
-            payment_method:   finalMethod || undefined,
-            task:             taskDbId > 0 ? taskDbId : undefined,
-          });
-        } catch { /* transaction failure doesn't cancel task */ }
-      }
-
-      // 4. Upload attachments
-      // POST /tasks/ often omits "id" — fetch the created task by taskId to get real DB id
-      if (filesToUpload.length > 0) {
-        const raw       = createdTask as unknown as Record<string, unknown>;
-        const taskIdStr = String(raw?.taskId ?? '');
-
-        // Try direct id first, then fetch by search to get real numeric id
-        let uploadId = raw?.id != null && Number(raw.id) > 0 ? Number(raw.id) : 0;
-
-        if (uploadId === 0 && taskIdStr) {
+      // 5. Add payments via task payment endpoint
+      if (numericId > 0) {
+        const advanceAmt = parseFloat(advancePayment || '0') || 0;
+        if (advanceAmt > 0) {
           try {
-            const found = await taskService.findByTaskId(taskIdStr);
-            const match = found?.results?.find((t) => t.taskId === taskIdStr);
-            if (match) {
-              const mRaw = match as unknown as Record<string, unknown>;
-              uploadId = Number(mRaw.id ?? 0);
-            }
-          } catch { /* skip if lookup fails */ }
+            await taskService.addPayment(String(numericId), {
+              amount:        advanceAmt,
+              paymentType:   'advance',
+              paymentMethod: advanceMethod || 'cash',
+              paidAt:        advanceDate ? new Date(advanceDate).toISOString() : undefined,
+            });
+          } catch { /* payment failure doesn't cancel task */ }
         }
 
-        if (uploadId > 0) {
-          for (const file of filesToUpload) {
+        for (const mid of midPayments) {
+          const midAmt = parseFloat(mid.amount || '0') || 0;
+          if (midAmt > 0) {
             try {
-              await attachmentService.upload(uploadId, file);
-            } catch (uploadErr: unknown) {
-              const msg = uploadErr instanceof Error ? uploadErr.message : 'Upload error';
-              setError(`Ֆայlero upload chstacav: ${msg}`);
-              setUploading(false);
-              return;
-            }
+              await taskService.addPayment(String(numericId), {
+                amount:        midAmt,
+                paymentType:   'partial',
+                paymentMethod: mid.method || 'cash',
+                paidAt:        mid.date ? new Date(mid.date + 'T00:00:00').toISOString() : undefined,
+              });
+            } catch { /* payment failure doesn't cancel task */ }
+          }
+        }
+
+        const finalAmt = parseFloat(finalPayment || '0') || 0;
+        if (finalAmt > 0) {
+          try {
+            await taskService.addPayment(String(numericId), {
+              amount:        finalAmt,
+              paymentType:   'final',
+              paymentMethod: finalMethod || 'cash',
+              paidAt:        finalDate ? new Date(finalDate + 'T00:00:00').toISOString() : undefined,
+            });
+          } catch { /* payment failure doesn't cancel task */ }
+        }
+      }
+
+      // 6. Upload attachments
+      if (filesToUpload.length > 0 && numericId > 0) {
+        for (const file of filesToUpload) {
+          try {
+            await attachmentService.upload(numericId, file);
+          } catch (uploadErr: unknown) {
+            const msg = uploadErr instanceof Error ? uploadErr.message : 'Upload error';
+            setError(`Ֆայlero upload chstacav: ${msg}`);
+            setUploading(false);
+            return;
           }
         }
       }
@@ -519,9 +579,9 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
               </Field>
               <Field label="Ընդունման ամսաթիվ">
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={acceptanceDate}
-                  onChange={(e) => setAccDate(e.target.value)}
+                  onChange={(e) => handleAcceptanceDate(e.target.value)}
                   className={inputCls()}
                 />
               </Field>
@@ -530,8 +590,25 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
               <input
                 value={deliveryAddress}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="Քաղաք, Տուն, Բնակ..."
+                placeholder="Քաղաք, փողոց, տուն․․․"
                 className={inputCls()}
+              />
+            </Field>
+            <Field label="Անձնագրի Սերիա">
+              <input
+                value={passportSeries}
+                onChange={(e) => setPassport(e.target.value)}
+                placeholder="AB 1234567..."
+                className={inputCls()}
+              />
+            </Field>
+            <Field label="Հաճախորդի Նշումներ">
+              <textarea
+                value={clientNotes}
+                onChange={(e) => setClientNotes(e.target.value)}
+                placeholder="Նշումներ․․․"
+                rows={3}
+                className={inputCls() + ' resize-none'}
               />
             </Field>
           </Section>
@@ -601,21 +678,19 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
             </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Կտորի տեսակ">
-                <SelectWithAdd
-                  value={fabricType}
-                  onChange={setFabric}
+                <CreatableCombo
                   items={fabricTypes}
-                  onCreate={(name) => fabricTypeService.create(name)}
-                  queryKey="fabric-types"
+                  id={fabricTypeId}
+                  name={fabricTypeName}
+                  onChange={(id, name) => { setFabricTypeId(id); setFabricTypeName(name); }}
                 />
               </Field>
               <Field label="Փափկություն">
-                <SelectWithAdd
-                  value={softness}
-                  onChange={setSoftness}
+                <CreatableCombo
                   items={softnessLevels}
-                  onCreate={(name) => softnessService.create(name)}
-                  queryKey="softness-levels"
+                  id={softnessId}
+                  name={softnessName}
+                  onChange={(id, name) => { setSoftnessId(id); setSoftnessName(name); }}
                 />
               </Field>
             </div>
@@ -625,7 +700,20 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
           <Section title="Արժեք">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Field label="Ընդհանուր արժեք">
-                <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0 ֏" className={inputCls()} />
+                <input
+                  value={price}
+                  onChange={(e) => {
+                    setPrice(e.target.value);
+                    // recalculate advance if percent is set
+                    const pct = parseFloat(advancePercent);
+                    const total = parseFloat(e.target.value);
+                    if (pct > 0 && total > 0) {
+                      setAdvance(String(Math.round(total * pct / 100)));
+                    }
+                  }}
+                  placeholder="0 ֏"
+                  className={inputCls()}
+                />
               </Field>
             </div>
 
@@ -634,18 +722,107 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
               <p className="text-[11px] font-bold text-text-muted uppercase tracking-widest mb-2.5">Կանխավճար</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Field label="Գումար">
-                  <input value={advancePayment} onChange={(e) => setAdvance(e.target.value)} placeholder="0 ֏" className={inputCls()} />
+                  <div className="flex gap-1.5 items-center">
+                    <input
+                      value={advancePayment}
+                      onChange={(e) => { setAdvance(e.target.value); setAdvancePct(''); }}
+                      placeholder="0 ֏"
+                      className={inputCls()}
+                    />
+                    <div className="relative flex-shrink-0 w-20">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={advancePercent}
+                        onChange={(e) => {
+                          const pct = e.target.value;
+                          setAdvancePct(pct);
+                          const total = parseFloat(price);
+                          const p     = parseFloat(pct);
+                          if (p >= 0 && total > 0) {
+                            setAdvance(String(Math.round(total * p / 100)));
+                          }
+                        }}
+                        placeholder="%"
+                        className={`${inputCls()} pr-5`}
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-text-muted pointer-events-none">%</span>
+                    </div>
+                  </div>
                 </Field>
                 <Field label="Ամսաթիվ">
-                  <input type="date" value={advanceDate} onChange={(e) => setAdvanceDate(e.target.value)} className={inputCls()} />
+                  <input type="datetime-local" value={advanceDate} onChange={(e) => setAdvanceDate(e.target.value)} className={inputCls()} />
                 </Field>
                 <Field label="Վճարման մեթոդ">
                   <select value={advanceMethod} onChange={(e) => setAdvanceMethod(e.target.value as 'card' | 'cash' | '')} className={inputCls()}>
                     <option value="">—</option>
-                    <option value="card">Քարտով</option>
-                    <option value="cash">Կանխիկ</option>
+                    <option value="card">Qartov</option>
+                    <option value="cash">Kanxik</option>
                   </select>
                 </Field>
+              </div>
+            </div>
+
+            {/* Mid payments */}
+            <div className="mt-3 p-3 rounded-xl border border-crm-border bg-gray-50">
+              <div className="flex items-center justify-between mb-2.5">
+                <p className="text-[11px] font-bold text-text-muted uppercase tracking-widest">Միջնավճար</p>
+                <button
+                  type="button"
+                  onClick={addMidRow}
+                  className="flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-hover transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                  Ավելացնել
+                </button>
+              </div>
+              {midPayments.length === 0 && (
+                <p className="text-xs text-text-muted text-center py-2">Միջնավճարներ չկան</p>
+              )}
+              <div className="flex flex-col gap-2">
+                {midPayments.map((mid) => (
+                  <div key={mid.key} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
+                    <Field label="Գումար">
+                      <input
+                        value={mid.amount}
+                        onChange={(e) => updateMidRow(mid.key, { amount: e.target.value })}
+                        placeholder="0 ֏"
+                        className={inputCls()}
+                      />
+                    </Field>
+                    <Field label="Ամսաթիվ">
+                      <input
+                        type="date"
+                        value={mid.date}
+                        onChange={(e) => updateMidRow(mid.key, { date: e.target.value })}
+                        className={inputCls()}
+                      />
+                    </Field>
+                    <Field label="Վճարման մեթոդ">
+                      <select
+                        value={mid.method}
+                        onChange={(e) => updateMidRow(mid.key, { method: e.target.value as 'card' | 'cash' | '' })}
+                        className={inputCls()}
+                      >
+                        <option value="">—</option>
+                        <option value="card">Qartov</option>
+                        <option value="cash">Kanxik</option>
+                      </select>
+                    </Field>
+                    <button
+                      type="button"
+                      onClick={() => removeMidRow(mid.key)}
+                      className="mb-0.5 p-1.5 text-text-muted hover:text-error transition-colors rounded-lg"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                      </svg>
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -668,6 +845,34 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
                 </Field>
               </div>
             </div>
+
+            {/* Debt summary */}
+            {(() => {
+              const total    = parseFloat(price)         || 0;
+              const advance  = parseFloat(advancePayment) || 0;
+              const midTotal = midPayments.reduce((s, m) => s + (parseFloat(m.amount) || 0), 0);
+              const final    = parseFloat(finalPayment)  || 0;
+              const paid     = advance + midTotal + final;
+              const debt     = total - paid;
+              if (total === 0) return null;
+              return (
+                <div className={`mt-3 p-4 rounded-xl border-2 flex items-center justify-between gap-4 ${
+                  debt <= 0 ? 'border-success/40 bg-success/5' : 'border-error/30 bg-error/5'
+                }`}>
+                  <div className="flex flex-col gap-1 text-xs text-text-muted">
+                    <span>{total.toLocaleString('hy-AM')} ֏ ընդhanuр</span>
+                    <span className="text-success">− {paid.toLocaleString('hy-AM')} ֏ ВchарВАD</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-0.5">Պartvк</p>
+                    <p className={`text-xl font-bold ${debt <= 0 ? 'text-success' : 'text-error'}`}>
+                      {debt <= 0 ? '0' : debt.toLocaleString('hy-AM')} ֏
+                    </p>
+                    {debt <= 0 && <p className="text-[10px] text-success font-semibold">Ամբողջοvin VcharvAD ✓</p>}
+                  </div>
+                </div>
+              );
+            })()}
           </Section>
 
           {/* ── Կատարագրություն ── */}
@@ -685,7 +890,7 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
                     <select
                       value={row.assigneeId}
                       onChange={(e) => { updateRow(row.key, { assigneeId: e.target.value }); setError(''); }}
-                      className={inputCls(!row.assigneeId && !!error)}
+                      className={inputCls(false)}
                     >
                       <option value="">Ընտրել...</option>
                       {assignees.map((a) => (
@@ -729,24 +934,17 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
               Ավելացնել կատարող
             </button>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Կարևություն">
-                <select value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)} className={inputCls()}>
-                  {PRIORITIES.map((p) => <option key={p}>{p}</option>)}
-                </select>
-              </Field>
-              <Field label="Վերջնաժամկետ">
-                <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={inputCls()} />
-              </Field>
-            </div>
+            <Field label="Վերջնաժամկետ">
+              <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={inputCls()} />
+            </Field>
           </Section>
 
-          {/* ── Նիշումներ ── */}
-          <Section title="Նիշումներ">
+          {/* ── Task notes ── */}
+          <Section title="Նշումներ">
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Լրացուցիչ նկատառություններ..."
+              placeholder="Լրացուցիչ նշումներ․․․"
               rows={3}
               className={inputCls() + ' resize-none'}
             />

@@ -252,55 +252,116 @@ const PRIORITY_LABELS: Record<string, { label: string; cls: string }> = {
   Low:    { label: 'Ցածր',  cls: 'text-success'  },
 };
 
+function fmtDt(iso?: string) {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch { return iso; }
+}
+
+function InfoRow({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string; accent?: string }) {
+  return (
+    <div className="flex items-start gap-2 min-w-0">
+      <span className="text-text-muted mt-0.5 flex-shrink-0">{icon}</span>
+      <div className="min-w-0">
+        <p className="text-[10px] text-text-muted leading-none mb-0.5">{label}</p>
+        <p className={`text-xs font-medium truncate ${accent ?? 'text-dark'}`}>{value}</p>
+      </div>
+    </div>
+  );
+}
+
 function TaskCard({ task }: { task: TaskDTO }) {
-  const priority = PRIORITY_LABELS[task.priority] ?? { label: task.priority, cls: 'text-gray-500' };
+  const [open, setOpen] = useState(false);
 
   const statusLabel = task.statusName ?? STATUS_LABELS[task.status]?.label ?? task.status;
   const statusColor = task.statusColor;
+  const rawClient   = task.clientLinkName ?? task.client ?? '';
+  const clientName  = rawClient && isNaN(Number(rawClient)) ? rawClient : null;
 
-  const rawClient  = task.clientLinkName ?? task.client ?? '';
-  const clientName = rawClient && isNaN(Number(rawClient)) ? rawClient : null;
+  const iconPerson = <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
+  const iconPhone  = <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.0 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg>;
+  const iconCal    = <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>;
+  const iconBox    = <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>;
+  const iconMoney  = <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>;
+  const iconNote   = <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>;
 
   return (
-    <div className="bg-white rounded-2xl border border-crm-border p-4 shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-3 mb-2">
+    <div className="bg-white rounded-2xl border border-crm-border shadow-sm overflow-hidden">
+
+      {/* Clickable header */}
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 transition-colors text-left"
+      >
         <div className="min-w-0 flex-1">
-          <p className="text-xs text-text-muted font-mono mb-0.5">{task.taskId ?? task.id}</p>
-          <p className="text-sm font-semibold text-dark leading-snug truncate">{task.name}</p>
+          <p className="text-[11px] text-text-muted font-mono mb-0.5">{task.taskId ?? task.id}</p>
+          <p className="text-sm font-bold text-dark leading-snug">{task.name}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className={`text-xs font-semibold ${priority.cls}`}>{priority.label}</span>
           {statusColor ? (
-            <span
-              className="px-2.5 py-0.5 rounded-full text-xs font-semibold text-white"
-              style={{ backgroundColor: statusColor }}
-            >
-              {statusLabel}
-            </span>
+            <span className="px-2.5 py-1 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: statusColor }}>{statusLabel}</span>
           ) : (
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${STATUS_LABELS[task.status]?.cls ?? 'bg-gray-100 text-gray-500'}`}>
-              {statusLabel}
-            </span>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_LABELS[task.status]?.cls ?? 'bg-gray-100 text-gray-500'}`}>{statusLabel}</span>
+          )}
+          <svg
+            className={`w-4 h-4 text-text-muted transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`}
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          >
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </button>
+
+      {/* Expandable details */}
+      {open && (
+        <div className="px-4 pb-4 flex flex-col gap-3 border-t border-crm-border">
+
+          {/* Client info */}
+          {(clientName || task.phone) && (
+            <div className="grid grid-cols-2 gap-2 pt-3">
+              {clientName && <InfoRow icon={iconPerson} label="Client" value={clientName} />}
+              {task.phone  && <InfoRow icon={iconPhone}  label="Phone"  value={task.phone} />}
+            </div>
+          )}
+
+          {/* Dates */}
+          {(task.acceptanceDate || task.deadline) && (
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-crm-border">
+              {task.acceptanceDate && <InfoRow icon={iconCal} label="Acceptance" value={fmtDt(task.acceptanceDate)!} />}
+              {task.deadline       && <InfoRow icon={iconCal} label="Deadline"   value={fmtDt(task.deadline)!}       accent="text-error" />}
+            </div>
+          )}
+
+          {/* Product */}
+          {(task.model || task.dimensions || task.fabricType || task.softness) && (
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-crm-border">
+              {task.model      && <InfoRow icon={iconBox} label="Model"      value={task.model} />}
+              {task.dimensions && <InfoRow icon={iconBox} label="Dimensions" value={task.dimensions} />}
+              {task.fabricType && <InfoRow icon={iconBox} label="Fabric"     value={task.fabricType} />}
+              {task.softness   && <InfoRow icon={iconBox} label="Softness"   value={task.softness} />}
+            </div>
+          )}
+
+          {/* Financials */}
+          {(task.price || task.advancePayment || task.finalPayment) && (
+            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-crm-border">
+              {task.price          && <InfoRow icon={iconMoney} label="Total"   value={`${task.price} ֏`}          accent="text-success" />}
+              {task.advancePayment && <InfoRow icon={iconMoney} label="Advance" value={`${task.advancePayment} ֏`} accent="text-primary" />}
+              {task.finalPayment   && <InfoRow icon={iconMoney} label="Final"   value={`${task.finalPayment} ֏`}   accent="text-primary" />}
+            </div>
+          )}
+
+          {/* Notes */}
+          {task.notes && (
+            <div className="pt-2 border-t border-crm-border flex gap-2">
+              <span className="text-text-muted mt-0.5 flex-shrink-0">{iconNote}</span>
+              <p className="text-xs text-text-muted leading-relaxed">{task.notes}</p>
+            </div>
           )}
         </div>
-      </div>
-
-      <div className="flex items-center gap-4 text-xs text-text-muted flex-wrap">
-        {clientName && (
-          <div className="flex items-center gap-1">
-            <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
-            </svg>
-            <span className="font-medium text-dark">{clientName}</span>
-          </div>
-        )}
-        {task.deadline && (
-          <div className="flex items-center gap-1">
-            <CalendarIcon />
-            <span>{task.deadline}</span>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
@@ -309,10 +370,29 @@ function TaskCard({ task }: { task: TaskDTO }) {
 
 function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string }) {
   const queryClient = useQueryClient();
-  const [openId,    setOpenId]    = useState<string | null>(null);
+  const [openId,       setOpenId]       = useState<string | null>(null);
+  const [expandedIds,  setExpandedIds]  = useState<Set<string>>(new Set());
+  const [selectedIds,  setSelectedIds]  = useState<Set<string>>(new Set());
+  const [bulkPaying,   setBulkPaying]   = useState(false);
   const [payAmount, setPayAmount] = useState('');
   const [payNote,   setPayNote]   = useState('');
   const [payDate,   setPayDate]   = useState('');
+
+  function toggleExpand(id: string) {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next;
+    });
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next;
+    });
+  }
 
   const { mutate: recordPay, isPending: recording } = useMutation({
     mutationFn: ({ taskId, userId, amount, note, paidAt }: { taskId: string; userId: number; amount: string; note: string; paidAt: string }) =>
@@ -379,6 +459,27 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
   }
 
   const tasksWithSalary = tasks.filter((t) => getSalary(t) > 0);
+
+  async function payAllSelected() {
+    const now = new Date().toISOString().slice(0, 16);
+    const targets = tasksWithSalary.filter(t => t.id && selectedIds.has(t.id) && !isPaid(t));
+    if (targets.length === 0) return;
+    setBulkPaying(true);
+    try {
+      await Promise.all(targets.map(t => {
+        const assignee = getAssignee(t);
+        if (!assignee || !t.id) return Promise.resolve();
+        const remaining = Math.max(0, getSalary(t) - getTotalPaid(t));
+        if (remaining <= 0) return Promise.resolve();
+        return taskService.recordPayment(t.id, assignee.userId, { amount: String(remaining), paidAt: now });
+      }));
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', employeeId] });
+      setSelectedIds(new Set());
+    } finally {
+      setBulkPaying(false);
+    }
+  }
   const total        = tasksWithSalary.reduce((s, t) => s + getSalary(t), 0);
   // Sum of what's actually been paid across ALL tasks (including partial)
   const totalPaid    = tasksWithSalary.reduce((s, t) => s + getTotalPaid(t), 0);
@@ -415,6 +516,32 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
         </div>
       </div>
 
+      {/* Bulk pay action bar */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between bg-primary/10 border border-primary/30 rounded-2xl px-4 py-3">
+          <span className="text-sm font-medium text-primary">
+            {selectedIds.size} ընտրված · {tasksWithSalary.filter(t => t.id && selectedIds.has(t.id) && !isPaid(t)).reduce((s, t) => s + Math.max(0, getSalary(t) - getTotalPaid(t)), 0).toLocaleString('hy-AM')} ֏ մնացած
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setSelectedIds(new Set())} className="px-3 py-1.5 text-xs rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors">
+              Չеղarkel
+            </button>
+            <button
+              onClick={payAllSelected}
+              disabled={bulkPaying}
+              className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-success text-white hover:bg-green-600 transition-colors disabled:opacity-60 flex items-center gap-1.5"
+            >
+              {bulkPaying ? (
+                <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity=".25"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+              ) : (
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              )}
+              {bulkPaying ? 'Vcharum...' : `Pay ${selectedIds.size} fully`}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Task list */}
 
       {tasksWithSalary.length === 0 ? (
@@ -436,11 +563,21 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
               const isPartial = totalPaidForTask > 0 && !taskPaid;
               const assignee  = getAssignee(t);
               const payments  = assignee?.payments ?? [];
+              const isSelected = selectedIds.has(t.id ?? '');
               return (
-                <div key={t.id} className="bg-white rounded-2xl border border-crm-border shadow-sm overflow-hidden">
+                <div key={t.id} className={`rounded-2xl border shadow-sm overflow-hidden ${isSelected ? 'bg-primary/5 border-primary/30' : 'bg-white border-crm-border'}`}>
                   <div className="p-4 flex flex-col gap-2">
                     {/* Task name + ID */}
                     <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2 min-w-0">
+                        {!taskPaid && (
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 mt-0.5 rounded accent-primary cursor-pointer flex-shrink-0"
+                            checked={isSelected}
+                            onChange={() => t.id && toggleSelect(t.id)}
+                          />
+                        )}
                       <div className="min-w-0">
                         <p className="text-[10px] text-text-muted font-mono">{t.taskId ?? t.id}</p>
                         <p className="text-sm font-semibold text-dark leading-snug">{t.name}</p>
@@ -456,6 +593,7 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                             </p>
                           ) : null;
                         })()}
+                      </div>
                       </div>
                       {t.statusColor ? (
                         <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold text-white" style={{ backgroundColor: t.statusColor }}>
@@ -482,22 +620,26 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                         </p>
                       </div>
                     </div>
-                    {/* Pay button */}
-                    <div className="flex justify-end mt-1">
+                    {/* Pay button + expand toggle */}
+                    <div className="flex items-center justify-between mt-1">
+                      <button type="button" onClick={() => t.id && toggleExpand(t.id)} className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-dark rounded-lg hover:bg-gray-100 transition-colors">
+                        <svg className={`w-3.5 h-3.5 transition-transform ${expandedIds.has(t.id ?? "") ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        {payments.length > 0 ? `${payments.length}` : ""}
+                      </button>
                       {taskPaid ? (
-                        <button onClick={() => openPayForm(t)} className="px-3 py-1 text-xs font-medium rounded-full bg-success/10 text-success">Վչարված ✓</button>
+                        <button onClick={() => { openPayForm(t); t.id && setExpandedIds(p => new Set(p).add(t.id!)); }} className="px-3 py-1 text-xs font-medium rounded-full bg-success/10 text-success">Վchарված ✓</button>
                       ) : (
                         <button
-                          onClick={() => (isOpen ? setOpenId(null) : openPayForm(t))}
-                          className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${isOpen ? 'bg-primary text-white border-primary' : isPartial ? 'border-warning text-warning' : 'border-crm-border text-text-muted hover:border-primary hover:text-primary'}`}
+                          onClick={() => { if (isOpen) { setOpenId(null); } else { openPayForm(t); t.id && setExpandedIds(p => new Set(p).add(t.id!)); } }}
+                          className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${isOpen ? "bg-primary text-white border-primary" : isPartial ? "border-warning text-warning" : "border-crm-border text-text-muted hover:border-primary hover:text-primary"}`}
                         >
-                          {isPartial ? 'Մասնակի' : 'Վչարել'}
+                          {isPartial ? "Մasнаki" : "Վchарел"}
                         </button>
                       )}
                     </div>
                   </div>
-                  {/* Payment history + inline form */}
-                  {(payments.length > 0 || isOpen) && (
+                  {/* Payment history + inline form — only when expanded */}
+                  {expandedIds.has(t.id ?? '') && (payments.length > 0 || isOpen) && (
                     <div className="border-t border-crm-border/40 bg-gray-50/50">
                       {payments.map((p) => (
                         <div key={p.id} className="flex items-center gap-2 px-4 py-1.5 text-xs text-text-muted border-b border-crm-border/20 last:border-b-0">
@@ -534,25 +676,55 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
 
           {/* Desktop table */}
           <div className="hidden md:block bg-white rounded-2xl border border-crm-border shadow-sm overflow-hidden">
-            <div className="grid grid-cols-[1fr_110px_90px_110px_130px] gap-3 px-5 py-3 bg-gray-50 border-b border-crm-border">
+            <div className="grid grid-cols-[20px_32px_1fr_110px_90px_110px_130px] gap-3 px-5 py-3 bg-gray-50 border-b border-crm-border items-center">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded accent-primary cursor-pointer"
+                checked={selectedIds.size > 0 && tasksWithSalary.filter(t => !isPaid(t) && t.id).every(t => selectedIds.has(t.id!))}
+                onChange={e => {
+                  const unpaidIds = tasksWithSalary.filter(t => !isPaid(t) && t.id).map(t => t.id!);
+                  setSelectedIds(e.target.checked ? new Set(unpaidIds) : new Set());
+                }}
+              />
+              <span />
               <span className="text-xs font-semibold text-text-muted">Պatvrnerr</span>
               <span className="text-xs font-semibold text-text-muted">Վerdjnazhamket</span>
               <span className="text-xs font-semibold text-text-muted">Կatus</span>
               <span className="text-xs font-semibold text-text-muted text-right">Աշխատավարխներ</span>
-              <span className="text-xs font-semibold text-text-muted text-center">Վչարել</span>
+              <span className="text-xs font-semibold text-text-muted text-center">Վчарел</span>
             </div>
             {tasksWithSalary.map((t) => {
               const status   = STATUS_LABELS[t.status] ?? { label: String(t.status), cls: 'bg-gray-100 text-gray-500' };
               const taskPaid = isPaid(t);
               const isOpen   = openId === t.id;
+              const isExpanded = expandedIds.has(t.id ?? '');
+              const isSelected = selectedIds.has(t.id ?? '');
               const salary   = getSalary(t);
               const totalPaidForTask = getTotalPaid(t);
               const assignee = getAssignee(t);
               const payments = assignee?.payments ?? [];
               const isPartial = totalPaidForTask > 0 && !taskPaid;
               return (
-                <div key={t.id} className="border-b border-crm-border last:border-b-0">
-                  <div className="grid grid-cols-[1fr_110px_90px_110px_130px] gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors items-center">
+                <div key={t.id} className={`border-b border-crm-border last:border-b-0 ${isSelected ? 'bg-primary/5' : ''}`}>
+                  <div className="grid grid-cols-[20px_32px_1fr_110px_90px_110px_130px] gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors items-center">
+                    {/* Checkbox */}
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded accent-primary cursor-pointer"
+                      checked={isSelected}
+                      disabled={taskPaid}
+                      onChange={() => t.id && toggleSelect(t.id)}
+                    />
+                    {/* Chevron toggle */}
+                    <button
+                      type="button"
+                      onClick={() => t.id && toggleExpand(t.id)}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-text-muted transition-colors flex-shrink-0"
+                    >
+                      <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 12 15 18 9"/>
+                      </svg>
+                    </button>
                     <div className="min-w-0">
                       <p className="text-xs text-text-muted font-mono">{t.taskId ?? t.id}</p>
                       <p className="text-sm font-semibold text-dark truncate mt-0.5">{t.name}</p>
@@ -561,23 +733,25 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                     <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold w-fit ${status.cls}`}>{status.label}</span>
                     <div className="flex flex-col items-end gap-0.5">
                       <p className={`text-sm font-bold ${taskPaid ? 'text-success' : isPartial ? 'text-warning' : 'text-dark'}`}>{salary.toLocaleString('hy-AM')} ֏</p>
-                      {isPartial && <p className="text-[10px] text-warning font-medium">{totalPaidForTask.toLocaleString('hy-AM')} ֏ վչարված</p>}
-                      {taskPaid && <span className="text-[10px] text-success font-semibold">Վչարված ✓</span>}
+                      {isPartial && <p className="text-[10px] text-warning font-medium">{totalPaidForTask.toLocaleString('hy-AM')} ֏ վچарված</p>}
+                      {taskPaid && <span className="text-[10px] text-success font-semibold">Վчарված ✓</span>}
                     </div>
                     <div className="flex justify-center">
                       {taskPaid ? (
-                        <button onClick={() => openPayForm(t)} className="px-3 py-1 text-xs font-medium rounded-full bg-success/10 text-success hover:bg-success/20 transition-colors whitespace-nowrap">Վչարված ✓</button>
+                        <button onClick={() => { openPayForm(t); t.id && setExpandedIds(p => new Set(p).add(t.id!)); }} className="px-3 py-1 text-xs font-medium rounded-full bg-success/10 text-success hover:bg-success/20 transition-colors whitespace-nowrap">Վчарված ✓</button>
                       ) : (
-                        <button onClick={() => (isOpen ? setOpenId(null) : openPayForm(t))} className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors whitespace-nowrap ${isOpen ? 'bg-primary text-white border-primary' : isPartial ? 'border-warning text-warning hover:bg-warning/10' : 'border-crm-border text-text-muted hover:border-primary hover:text-primary'}`}>
-                          {isPartial ? 'Մասնակի' : 'Վչարել'}
+                        <button onClick={() => { if (isOpen) { setOpenId(null); } else { openPayForm(t); t.id && setExpandedIds(p => new Set(p).add(t.id!)); } }} className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors whitespace-nowrap ${isOpen ? 'bg-primary text-white border-primary' : isPartial ? 'border-warning text-warning hover:bg-warning/10' : 'border-crm-border text-text-muted hover:border-primary hover:text-primary'}`}>
+                          {isPartial ? 'Մаснаки' : 'Վчарел'}
                         </button>
                       )}
                     </div>
                   </div>
-                  {(payments.length > 0 || isOpen) && (
+                  {isExpanded && (payments.length > 0 || isOpen) && (
                     <div className="border-t border-crm-border/40">
                       {payments.map((p) => (
                         <div key={p.id} className="flex items-center gap-3 px-5 py-1.5 text-xs text-text-muted bg-gray-50/50 border-b border-crm-border/20 last:border-b-0">
+                          <span className="w-4 flex-shrink-0" />
+                          <span className="w-7 flex-shrink-0" />
                           <span className="font-semibold text-success w-28 text-right flex-shrink-0">{parseFloat(p.amount).toLocaleString('hy-AM')} ֏</span>
                           <span className="flex-1 truncate">{p.note || '--'}</span>
                           <span className="flex-shrink-0">{p.paidAt ? new Date(p.paidAt).toLocaleDateString('hy-AM') : '--'}</span>
@@ -586,11 +760,13 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                       ))}
                       {isOpen && (
                         <div className="flex items-center gap-2 px-5 py-2 bg-primary/5 border-t border-primary/10">
+                          <span className="w-4 flex-shrink-0" />
+                          <span className="w-7 flex-shrink-0" />
                           <input type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} className="w-28 px-2 py-1.5 text-sm rounded-lg border border-crm-border outline-none focus:border-primary bg-white" placeholder="0" />
                           <span className="text-xs text-text-muted">֏</span>
                           <input type="text" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="Nishum..." className="flex-1 min-w-0 px-2 py-1.5 text-sm rounded-lg border border-crm-border outline-none focus:border-primary bg-white" />
                           <input type="datetime-local" value={payDate} onChange={(e) => setPayDate(e.target.value)} className="px-2 py-1.5 text-sm rounded-lg border border-crm-border outline-none focus:border-primary bg-white flex-shrink-0" />
-                          <button onClick={() => submitPay(t)} disabled={recording || !payAmount || Number(payAmount) <= 0} className="px-3 py-1.5 bg-success text-white text-xs font-semibold rounded-lg hover:bg-green-600 disabled:opacity-50 flex-shrink-0">{recording ? '...' : 'Վչարել'}</button>
+                          <button onClick={() => submitPay(t)} disabled={recording || !payAmount || Number(payAmount) <= 0} className="px-3 py-1.5 bg-success text-white text-xs font-semibold rounded-lg hover:bg-green-600 disabled:opacity-50 flex-shrink-0">{recording ? '...' : 'Վچарел'}</button>
                           <button onClick={() => setOpenId(null)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-crm-border text-text-muted hover:text-error text-xs flex-shrink-0">✕</button>
                         </div>
                       )}
@@ -599,8 +775,9 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                 </div>
               );
             })}
-            <div className="grid grid-cols-[1fr_110px_90px_110px_130px] gap-3 px-5 py-3 bg-gray-50 border-t border-crm-border">
-              <span className="text-xs font-bold text-dark">Ենդհանուր</span>
+            <div className="grid grid-cols-[20px_32px_1fr_110px_90px_110px_130px] gap-3 px-5 py-3 bg-gray-50 border-t border-crm-border">
+              <span /><span />
+              <span className="text-xs font-bold text-dark">Ендhanuр</span>
               <span /><span />
               <span className="text-sm font-bold text-primary text-right">{total.toLocaleString('hy-AM')} ֏</span>
               <span />
@@ -633,6 +810,8 @@ export default function EmployeeProfilePage({ id }: { id: string }) {
   const [showConfirm, setShowConfirm]     = useState(false);
   const [showResetPwd, setShowResetPwd]   = useState(false);
   const [resetPwdError, setResetPwdError] = useState<string | null>(null);
+  const [deadlineFrom, setDeadlineFrom] = useState('');
+  const [deadlineTo,   setDeadlineTo]   = useState('');
   const [form, setForm] = useState({
     position: '',
     birthday: '',
@@ -659,7 +838,25 @@ export default function EmployeeProfilePage({ id }: { id: string }) {
     queryKey: ['tasks', id],
     queryFn:  () => taskService.getByAssignee(id),
   });
-  const tasks = tasksResponse?.results ?? [];
+  const tasks = [...(tasksResponse?.results ?? [])].sort((a, b) => {
+    if (!a.deadline && !b.deadline) return 0;
+    if (!a.deadline) return 1;
+    if (!b.deadline) return -1;
+    return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+  });
+
+  const filteredTasks = (() => {
+    if (!deadlineFrom && !deadlineTo) return tasks;
+    const from = deadlineFrom ? new Date(deadlineFrom) : null;
+    const to   = deadlineTo   ? new Date(deadlineTo + 'T23:59:59') : null;
+    return tasks.filter(t => {
+      if (!t.deadline) return false;
+      const d = new Date(t.deadline);
+      if (from && d < from) return false;
+      if (to   && d > to)   return false;
+      return true;
+    });
+  })();
 
   function resolvePosition(pos: string | number): string {
     if (typeof pos === 'string' && isNaN(Number(pos))) return pos;
@@ -934,19 +1131,49 @@ export default function EmployeeProfilePage({ id }: { id: string }) {
             )}
           </div>
 
+          {/* Deadline date range filter */}
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <svg className="w-4 h-4 text-text-muted flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            <input
+              type="date"
+              value={deadlineFrom}
+              onChange={e => setDeadlineFrom(e.target.value)}
+              className="px-3 py-1.5 text-sm rounded-xl border border-crm-border bg-white text-dark focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+            <span className="text-xs text-text-muted">—</span>
+            <input
+              type="date"
+              value={deadlineTo}
+              min={deadlineFrom || undefined}
+              onChange={e => setDeadlineTo(e.target.value)}
+              className="px-3 py-1.5 text-sm rounded-xl border border-crm-border bg-white text-dark focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+            {(deadlineFrom || deadlineTo) && (
+              <button
+                onClick={() => { setDeadlineFrom(''); setDeadlineTo(''); }}
+                className="px-3 py-1.5 text-xs rounded-xl border border-crm-border text-text-muted hover:text-error hover:border-error/40 transition-colors bg-white"
+              >
+                ✕ Clear
+              </button>
+            )}
+            {(deadlineFrom || deadlineTo) && (
+              <span className="text-xs text-text-muted">{filteredTasks.length} result{filteredTasks.length !== 1 ? 's' : ''}</span>
+            )}
+          </div>
+
           {activeTab === 'tasks' && (
             <div className="flex flex-col gap-3">
-              {tasks.length === 0 ? (
+              {filteredTasks.length === 0 ? (
                 <div className="flex items-center justify-center h-48 bg-white rounded-2xl border border-crm-border text-text-muted text-sm shadow-sm">
-                  Պատվերներ սկսած չէ
+                  Պատверներ сksats che
                 </div>
               ) : (
-                tasks.map((task) => <TaskCard key={task.taskId ?? task.id} task={task} />)
+                filteredTasks.map((task) => <TaskCard key={task.taskId ?? task.id} task={task} />)
               )}
             </div>
           )}
           {activeTab === 'salary' && (
-            <SalaryTab tasks={tasks} employeeId={id} />
+            <SalaryTab tasks={filteredTasks} employeeId={id} />
           )}
         </div>
       </div>

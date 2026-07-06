@@ -1,7 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 
 const MEDIA_ORIGIN = new URL(
-  process.env.NEXT_PUBLIC_API_URL ?? 'https://a2c2-2a00-f3c-21d5-0-1cfc-b5b2-3a84-4c8a.ngrok-free.app/api/v1'
+  process.env.NEXT_PUBLIC_API_URL ?? 'https://88bc-2a00-f3c-21d5-0-9859-2d3-3666-9b5c.ngrok-free.app/api/v1'
 ).origin;
 
 export async function GET(req: NextRequest) {

@@ -1,4 +1,5 @@
 ﻿'use client';
+import { SkTable } from '@/components/ui/Skeleton';
 
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -161,7 +162,7 @@ export default function SalariesPage() {
             Ընդհանուր գումար
           </p>
           <p className="text-base md:text-2xl font-bold text-dark">{fmt(grandTotal)} ֏</p>
-          <p className="text-[10px] md:text-xs text-text-muted mt-0.5 md:mt-1">{employeeSalaries.length} աշխ.</p>
+          <p className="text-[10px] md:text-xs text-text-muted mt-0.5 md:mt-1">{employeeSalaries.length} Աշխատողներ</p>
         </div>
 
         {/* Paid */}
@@ -319,3 +320,4 @@ export default function SalariesPage() {
     </div>
   );
 }
+

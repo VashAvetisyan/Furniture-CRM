@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import ToastStack from '@/components/ui/ToastStack';
+import TopProgressBar from '@/components/ui/TopProgressBar';
 import { useAuthStore, useUIStore } from '@/stores';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router          = useRouter();
@@ -13,14 +16,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const hasHydrated     = useAuthStore((s) => s._hasHydrated);
   const { sidebarOpen, setSidebarOpen } = useUIStore();
 
+  const [navigating, setNavigating] = useState(false);
+  const prevPath  = useRef(pathname);
+  const hideTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  useWebSocket();
+
   useEffect(() => {
     if (hasHydrated && !isAuthenticated) router.replace('/login');
   }, [hasHydrated, isAuthenticated, router]);
 
-  // Close mobile sidebar on navigation
   useEffect(() => {
     setSidebarOpen(false);
   }, [pathname, setSidebarOpen]);
+
+  // Show spinner IMMEDIATELY when any internal link is clicked
+  useEffect(() => {
+    function onLinkClick(e: MouseEvent) {
+      const anchor = (e.target as Element).closest('a');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href');
+      if (!href || !href.startsWith('/') || href === pathname) return;
+      setNavigating(true);
+      clearTimeout(hideTimer.current);
+    }
+    document.addEventListener('mousedown', onLinkClick);
+    return () => document.removeEventListener('mousedown', onLinkClick);
+  }, [pathname]);
+
+  // Hide spinner after navigation completes
+  useEffect(() => {
+    if (prevPath.current === pathname) return;
+    prevPath.current = pathname;
+    clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setNavigating(false), 400);
+    return () => clearTimeout(hideTimer.current);
+  }, [pathname]);
 
   if (!hasHydrated || !isAuthenticated) return null;
 
@@ -35,7 +66,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }`}
       />
 
-      {/* Sidebar wrapper — fixed overlay on mobile, in-flow on desktop */}
+      {/* Sidebar wrapper */}
       <div className={`
         fixed inset-y-0 left-0 z-30 p-3
         md:relative md:inset-auto md:p-0 md:translate-x-0 md:flex md:flex-shrink-0
@@ -49,10 +80,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 flex flex-col min-w-0 gap-3 overflow-hidden p-3 md:p-0">
         <Header />
         <div className="flex-1 min-h-0 relative overflow-y-auto overflow-x-hidden">
+
+          {/* Navigation loading overlay */}
+          <div className={`absolute inset-0 z-50 flex items-center justify-center bg-light/70 backdrop-blur-[2px] transition-opacity duration-200 pointer-events-none ${
+            navigating ? 'opacity-100' : 'opacity-0'
+          }`}>
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-10 h-10 rounded-full border-[3px] border-primary/20 border-t-primary animate-spin" />
+            </div>
+          </div>
+
           {children}
         </div>
       </div>
 
+      <ToastStack />
+      <TopProgressBar />
     </div>
   );
 }

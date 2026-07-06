@@ -373,6 +373,16 @@ export function SalariesIcon({ className }: IconProps) {
   );
 }
 
+export function PendingPaymentsIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M12 6v6l4 2"/>
+      <path d="M9 17.5h3.5M12 17.5v-2.5"/>
+    </svg>
+  );
+}
+
 export function InvoiceIcon({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -391,6 +401,17 @@ export function ArchiveIcon({ className }: IconProps) {
       <polyline points="21 8 21 21 3 21 3 8"/>
       <rect x="1" y="3" width="22" height="5" rx="1"/>
       <line x1="10" y1="12" x2="14" y2="12"/>
+    </svg>
+  );
+}
+
+export function DeliveryIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="3" width="15" height="13"/>
+      <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+      <circle cx="5.5" cy="18.5" r="2.5"/>
+      <circle cx="18.5" cy="18.5" r="2.5"/>
     </svg>
   );
 }

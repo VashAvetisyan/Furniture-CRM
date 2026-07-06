@@ -158,7 +158,7 @@ function CallHistoryModal({ client, onClose }: {
           </div>
           <button
             onClick={() => addCall({ note: note.trim(), date })}
-            disabled={!date || isPending}
+            disabled={!date || !note.trim() || isPending}
             className="w-full py-2 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-40"
           >
             {isPending ? 'Ավելացնում...' : 'Ավելացնել'}
@@ -564,7 +564,7 @@ function AddCallModal({ onClose }: { onClose: () => void }) {
 
         <button
           onClick={() => addCall()}
-          disabled={!clientName.trim() || !date || isPending}
+          disabled={!clientName.trim() || !date || !note.trim() || isPending}
           className="w-full py-2.5 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-40"
         >
           {isPending ? 'Ավելացնում...' : 'Ավելացնել'}

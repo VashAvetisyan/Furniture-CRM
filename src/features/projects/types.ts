@@ -43,6 +43,28 @@ export interface TaskComment {
   taskStatus: { id: number; name: string; color: string; } | null;
 }
 
+export interface TaskDeliveryInfo {
+  id:             number;
+  status:         string;
+  status_display: string;
+  scheduledDate:  string | null;
+  deliveredAt:    string | null;
+  address:        string;
+  driverId:       number | null;
+  driverName:     string | null;
+  recipientName:  string | null;
+}
+
+export interface TaskPayment {
+  id:                  number;
+  amount:              string;
+  paymentType:         'advance' | 'partial' | 'final' | 'other';
+  paidAt:              string;
+  paymentMethod:       'cash' | 'card';
+  note:                string;
+  linkedTransactionId: number | null;
+}
+
 export interface TaskAssignee {
   id:                number;
   userId:            number;
@@ -56,6 +78,10 @@ export interface TaskAssignee {
   lastPaymentAmount: string | null;
   lastPaymentAt:     string | null;
   payments:          { id: number; amount: string; paidAt: string }[];
+  isStarted:         boolean;
+  startedAt:         string | null;
+  isDone:            boolean;
+  doneAt:            string | null;
 }
 
 export interface Task {
@@ -75,6 +101,8 @@ export interface Task {
   assigneeColor: string;
   assigneeInitials: string;
   assigneeName: string;
+  statusColor?: string;
+  statusName?:  string;
   assignees?: TaskAssignee[];
   reporterName?: string;
   reporterColor?: string;
@@ -83,9 +111,12 @@ export interface Task {
   createdAt?: string;
   editedAt?: string;
   client?: string;
+  clientLinkId?: number | null;
+  clientLinkName?: string;
   acceptanceDate?: string;
   deliveryAddress?: string;
   phone?: string;
+  passportSeries?: string;
   model?: string;
   dimensions?: string;
   fabricType?: string;
@@ -94,6 +125,9 @@ export interface Task {
   softnessId?: number | null;
   notes?: string;
   price?: string;
+  totalPaid?:  string;
+  balanceDue?: string;
+  payments?:   TaskPayment[];
   advancePayment?: string;
   advancePaymentDate?: string;
   advancePaymentMethod?: 'card' | 'cash';
@@ -103,6 +137,8 @@ export interface Task {
   attachments?: TaskAttachment[];
   activity?: ActivityItem[];
   comments?: TaskComment[];
+  deliveryConfirmed?: boolean;
+  delivery?: TaskDeliveryInfo | null;
   startDay?: number;
   endDay?: number;
 }

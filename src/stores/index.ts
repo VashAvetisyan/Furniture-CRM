@@ -1,9 +1,5 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { projects } from '@/features/projects/data';
-import { employeesList } from '@/features/employees/data';
-import type { Task } from '@/features/projects/types';
-import type { EmployeeListItem } from '@/features/employees/types';
 
 type UserRole = 'director' | 'employee';
 
@@ -81,26 +77,3 @@ export const useUIStore = create<UIStore>()(
   ),
 );
 
-interface TaskStore {
-  tasks: Task[];
-  addTask:    (task: Task) => void;
-  updateTask: (id: string, updates: Partial<Task>) => void;
-}
-
-export const useTaskStore = create<TaskStore>((set) => ({
-  tasks: projects.flatMap((p) => p.tasks),
-  addTask: (task) =>
-    set((s) => ({ tasks: [...s.tasks, task] })),
-  updateTask: (id, updates) =>
-    set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)) })),
-}));
-
-interface EmployeeStore {
-  employees: EmployeeListItem[];
-  addEmployee: (emp: EmployeeListItem) => void;
-}
-
-export const useEmployeeStore = create<EmployeeStore>((set) => ({
-  employees: employeesList,
-  addEmployee: (emp) => set((s) => ({ employees: [emp, ...s.employees] })),
-}));

@@ -20,9 +20,9 @@ function taskToEvent(task: Task): CalendarEvent | null {
 
   let day: number, month: number, year: number;
 
-  // ISO format: "2024-01-15"
-  if (/^\d{4}-\d{2}-\d{2}$/.test(task.deadline)) {
-    const [y, m, d] = task.deadline.split('-').map(Number);
+  // ISO format: "2024-01-15" or "2024-01-15T14:30:00+04:00"
+  if (/^\d{4}-\d{2}-\d{2}/.test(task.deadline)) {
+    const [y, m, d] = task.deadline.slice(0, 10).split('-').map(Number);
     year = y; month = m - 1; day = d;
   } else {
     // "Feb 23, 2020" format
@@ -35,14 +35,15 @@ function taskToEvent(task: Task): CalendarEvent | null {
   }
 
   const assigneeName = task.assignees?.[0]?.name || task.assigneeName || undefined;
+  const color = task.statusColor ?? task.assigneeColor ?? '#6B7280';
   return {
     id:         `task_ev_${task.id}`,
     title:      task.name,
     day, month, year,
-    color:      task.assigneeColor ?? '#6B7280',
+    color,
     subtitle:   assigneeName,
-    badge:      task.taskId,
-    badgeColor: task.assigneeColor ?? '#6B7280',
+    badge:      task.statusName ?? task.taskId,
+    badgeColor: color,
   };
 }
 
@@ -147,7 +148,7 @@ function EventCard({ event, onOpen }: { event: CalendarEvent; onOpen?: () => voi
       onClick={onOpen}
       className={`flex items-stretch rounded-lg overflow-hidden border border-crm-border bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] ${isTask ? 'cursor-pointer hover:border-primary/40 hover:shadow-md transition-all' : ''}`}
     >
-      <div className="w-[3px] flex-shrink-0" style={{ backgroundColor: event.color }} />
+      <div className="w-[6px] flex-shrink-0" style={{ backgroundColor: event.color }} />
       <div className="flex-1 px-2 py-1.5 min-w-0">
         <p className="text-[11px] font-semibold text-dark truncate leading-tight">
           {event.title}
@@ -406,9 +407,12 @@ export default function CalendarPage() {
     for (const t of tasksData) {
       const task: Task = {
         ...t,
-        id:      String(t.id),
-        taskId:  t.taskId ?? String(t.id),
-        section: (t.section ?? 'active') as Task['section'],
+        id:          String(t.id),
+        taskId:      t.taskId ?? String(t.id),
+        section:     (t.section ?? 'active') as Task['section'],
+        status:      (t.statusId !== undefined ? String(t.statusId) : t.status) as Task['status'],
+        statusColor: t.statusColor,
+        statusName:  t.statusName,
       };
       const ev = taskToEvent(task);
       if (ev) {

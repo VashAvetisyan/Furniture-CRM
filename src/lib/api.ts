@@ -1,4 +1,4 @@
-﻿export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://a2c2-2a00-f3c-21d5-0-1cfc-b5b2-3a84-4c8a.ngrok-free.app/api/v1';
+﻿export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://fe87-2a00-f3c-21d5-0-10ba-b336-9c9b-f6b3.ngrok-free.app/api/v1';
 
 export function mediaUrl(avatar: string | null | undefined): string | null {
   if (!avatar) return null;
@@ -30,7 +30,7 @@ async function refreshAccessToken(): Promise<string | null> {
   const refresh = getRefreshToken();
   if (!refresh) return null;
   try {
-    const res = await fetch(`${BASE_URL}/auth/token/refresh/`, {
+    const res = await fetch(`${BASE_URL}/auth/refresh/`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body:    JSON.stringify({ refresh }),

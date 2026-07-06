@@ -1,4 +1,5 @@
 ﻿'use client';
+import { SkTable } from '@/components/ui/Skeleton';
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -309,7 +310,7 @@ function MaterialsTable({ materials, isLoading, onEdit, onDelete, onTransfer }: 
   emptyMsg?:   string;
 }) {
   if (isLoading) {
-    return <div className="flex items-center justify-center h-40 text-text-muted text-sm">Բեռնվում...</div>;
+    return <div className="bg-white rounded-2xl border border-crm-border overflow-hidden p-4"><SkTable rows={6} cols={5} /></div>;
   }
   if (materials.length === 0) {
     return (
@@ -463,7 +464,7 @@ function MovementsTable({ movements, isLoading, onDelete }: {
   onDelete:  (id: number) => void;
 }) {
   if (isLoading) {
-    return <div className="flex items-center justify-center h-40 text-text-muted text-sm">Բեռնվում...</div>;
+    return <div className="bg-white rounded-2xl border border-crm-border overflow-hidden p-4"><SkTable rows={6} cols={5} /></div>;
   }
   if (movements.length === 0) {
     return (
@@ -656,3 +657,4 @@ export default function WarehousePage() {
     </div>
   );
 }
+

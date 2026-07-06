@@ -114,21 +114,18 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const panelRef   = useRef<HTMLDivElement>(null);
 
-  // Unread count — poll every 30s
   const { data: countData } = useQuery({
-    queryKey:        ['notifications-count'],
-    queryFn:         notificationService.getUnreadCount,
-    refetchInterval: 30_000,
-    staleTime:       10_000,
+    queryKey:  ['notifications-count'],
+    queryFn:   notificationService.getUnreadCount,
+    staleTime: 30_000,
   });
   const unread = countData?.unread ?? 0;
 
-  // Full list — load when panel opens
   const { data: listData, isLoading } = useQuery<NotificationListResponse>({
-    queryKey: ['notifications-list'],
-    queryFn:  (): Promise<NotificationListResponse> => notificationService.getAll(),
-    enabled:  open,
-    staleTime: 0,
+    queryKey:  ['notifications-list'],
+    queryFn:   (): Promise<NotificationListResponse> => notificationService.getAll(),
+    enabled:   open,
+    staleTime: 30_000,
   });
   const items: NotificationDTO[] = listData?.results ?? [];
 

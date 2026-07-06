@@ -1,14 +1,18 @@
 ﻿'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { brandService } from '@/services/brand.service';
+import { mediaUrl } from '@/lib/api';
 import {
   DashboardIcon, ProjectsIcon, CalendarIcon,
   EmployeesIcon, LogoutIcon, CallsIcon, FinanceIcon,
   WarehouseIcon, WorkshopIcon, ContactsIcon, CustomersIcon,
-  SalariesIcon, SettingsIcon, ArchiveIcon, InvoiceIcon,
+  SalariesIcon, SettingsIcon, ArchiveIcon, InvoiceIcon, DeliveryIcon,
+  PendingPaymentsIcon,
 } from '@/components/icons';
 import { useAuthStore, useUIStore } from '@/stores';
 import { authService } from '@/services/auth.service';
@@ -39,7 +43,16 @@ type NavEntry = LinkItem | GroupItem;
 
 const NAV: NavEntry[] = [
   { type: 'link',  label: 'Գլխավոր',      href: '/dashboard',  Icon: DashboardIcon  },
-  { type: 'link',  label: 'Պատվերներ',    href: '/tasks',      Icon: ProjectsIcon   },
+  {
+    type: 'group',
+    key:  'orders',
+    label: 'Պատվերներ',
+    Icon: ProjectsIcon,
+    children: [
+      { label: 'Ակտիվ',  href: '/tasks',   Icon: ProjectsIcon },
+      { label: 'Արխիվ',  href: '/archive', Icon: ArchiveIcon  },
+    ],
+  },
   { type: 'link',  label: 'Օրացույց',     href: '/calendar',   Icon: CalendarIcon   },
   {
     type: 'group',
@@ -52,11 +65,27 @@ const NAV: NavEntry[] = [
     ],
   },
   { type: 'link',  label: 'Մուտք / Ելք',  href: '/finance',    Icon: FinanceIcon    },
-  { type: 'link',  label: 'Պահեստ',       href: '/warehouse',  Icon: WarehouseIcon  },
-  { type: 'link',  label: 'Արտադրամաս',   href: '/workshops',  Icon: WorkshopIcon   },
-  { type: 'link',  label: 'Աշխատողներ',   href: '/employees',  Icon: EmployeesIcon  },
-  { type: 'link',  label: 'Աշխատավարձ',   href: '/salaries',   Icon: SalariesIcon   },
-  { type: 'link',  label: 'Արխիվ',           href: '/archive',   Icon: ArchiveIcon    },
+  {
+    type: 'group',
+    key:  'production',
+    label: 'Արտադրություն',
+    Icon: WorkshopIcon,
+    children: [
+      { label: 'Պահեստ',        href: '/warehouse', Icon: WarehouseIcon },
+      { label: 'Արտադրամաս',    href: '/workshops',  Icon: WorkshopIcon  },
+    ],
+  },
+  {
+    type: 'group',
+    key:  'staff',
+    label: 'Կադրեր',
+    Icon: EmployeesIcon,
+    children: [
+      { label: 'Աշխատողներ',  href: '/employees', Icon: EmployeesIcon },
+      { label: 'Աշխատավարձ',  href: '/salaries',  Icon: SalariesIcon  },
+      { label: 'Բանաձևներ',   href: '/payroll',   Icon: FinanceIcon   },
+    ],
+  },
   {
     type: 'group',
     key:  'debt',
@@ -68,6 +97,8 @@ const NAV: NavEntry[] = [
     ],
   },
   { type: 'link',  label: 'Կատալոգ',      href: '/catalog',   Icon: WarehouseIcon  },
+  { type: 'link',  label: 'Առաքում',          href: '/delivery',         Icon: DeliveryIcon        },
+  { type: 'link',  label: 'Սպասվող Վճարումներ', href: '/pending-payments', Icon: PendingPaymentsIcon },
   { type: 'link',  label: 'Կարգավորումներ', href: '/settings',  Icon: SettingsIcon   },
 ];
 
@@ -232,18 +263,53 @@ export default function Sidebar() {
 
   const { setSidebarOpen } = useUIStore();
 
+  const { data: brand, isLoading: brandLoading } = useQuery({
+    queryKey:  ['brand'],
+    queryFn:   brandService.get,
+    staleTime: 10 * 60_000,
+  });
+
+  const logoSrc = mediaUrl(brand?.logo ?? null);
+
   return (
     <aside className="w-52 h-full bg-white rounded-2xl shadow-sm flex flex-col flex-shrink-0 overflow-hidden">
-      {/* Logo + mobile close */}
-      <div className="px-5 pt-6 pb-4 flex items-center justify-between">
-        <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-md">
-          <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
-          </svg>
+      {/* Logo + brand name + mobile close */}
+      <div className="px-4 pt-5 pb-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {/* Logo — skeleton while loading */}
+          <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0">
+            {brandLoading ? (
+              <div className="w-full h-full bg-gray-200 animate-pulse rounded-xl" />
+            ) : logoSrc ? (
+              <Image
+                src={logoSrc}
+                alt={brand?.name ?? 'Logo'}
+                width={36}
+                height={36}
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <div className="w-full h-full bg-primary flex items-center justify-center">
+                <span className="text-white font-bold text-sm">
+                  {brand?.name?.charAt(0).toUpperCase() ?? 'C'}
+                </span>
+              </div>
+            )}
+          </div>
+          {/* Brand name — skeleton while loading */}
+          {brandLoading ? (
+            <div className="h-4 w-20 bg-gray-200 animate-pulse rounded-lg" />
+          ) : brand?.name ? (
+            <span className="font-bold text-dark text-sm leading-tight truncate">
+              {brand.name}
+            </span>
+          ) : null}
         </div>
+
+        {/* Mobile close */}
         <button
           onClick={() => setSidebarOpen(false)}
-          className="md:hidden p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          className="md:hidden flex-shrink-0 p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />

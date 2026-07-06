@@ -8,6 +8,34 @@ export interface PaymentDTO {
   note:    string;
 }
 
+export interface TaskPaymentDTO {
+  id:                  number;
+  amount:              string;
+  paymentType:         'advance' | 'partial' | 'final' | 'other';
+  paidAt:              string;
+  paymentMethod:       'cash' | 'card';
+  note:                string;
+  linkedTransactionId: number | null;
+}
+
+export interface CreateTaskPaymentRequest {
+  amount:        number;
+  paymentType:   'advance' | 'partial' | 'final' | 'other';
+  paymentMethod: 'cash' | 'card';
+  paidAt?:       string;
+  note?:         string;
+}
+
+export interface CostSummaryDTO {
+  task_id:             string;
+  price:               string;
+  total_received:      string;
+  balance_due:         string;
+  salary_cost:         string;
+  profit:              string;
+  materials_out_units: number;
+}
+
 export interface TaskCommentDTO {
   id:         number;
   text:       string;
@@ -40,6 +68,7 @@ export interface TaskDTO {
   clientLinkId?:    number | null;
   clientLinkName?:  string;
   phone?:           string;
+  passportSeries?:  string;
   acceptanceDate?:  string;
   deliveryAddress?: string;
   model?:           string;
@@ -48,8 +77,9 @@ export interface TaskDTO {
   fabricTypeId?:    number | null;
   softness?:        string;
   softnessId?:      number | null;
-  price?:           string;
+  price?:                  string;
   advancePayment?:         string;
+  advancePaymentPercent?:  number;
   advancePaymentDate?:     string;
   advancePaymentMethod?:   'card' | 'cash';
   finalPayment?:           string;
@@ -57,6 +87,8 @@ export interface TaskDTO {
   finalPaymentMethod?:     'card' | 'cash';
   assigneePayment?: string;
   notes?:           string;
+  totalPaid?:       string;
+  balanceDue?:      string;
   assignees?: {
     id:                 number;
     userId:             number;
@@ -70,8 +102,25 @@ export interface TaskDTO {
     lastPaymentAmount:  string | null;
     lastPaymentAt:      string | null;
     payments:           PaymentDTO[];
+    isStarted:          boolean;
+    startedAt:          string | null;
+    isDone:             boolean;
+    doneAt:             string | null;
   }[];
   comments?: TaskCommentDTO[];
+  payments?: TaskPaymentDTO[];
+  deliveryConfirmed?: boolean;
+  delivery?: {
+    id:             number;
+    status:         string;
+    status_display: string;
+    scheduledDate:  string | null;
+    deliveredAt:    string | null;
+    address:        string;
+    driverId:       number | null;
+    driverName:     string | null;
+    recipientName:  string | null;
+  } | null;
 }
 
 export interface TaskListResponse {
@@ -86,14 +135,15 @@ export interface CreateTaskRequest {
   description?:     string;
   status?:          TaskStatus | string | number;
   statusId?:        number;
-  priority:         TaskPriority;
-  section?:         'active' | 'backlog';
-  assigneeId:       string;
+  priority:         string;
+  section?:         'active' | 'backlog' | 'archive';
+  assigneeId?:      string;
   deadline?:        string;
   estimate?:        string;
   client?:          string;
   clientLinkId?:    number;
   phone?:           string;
+  passportSeries?:  string;
   order_number?:    string;
   items?:           unknown[];
   acceptanceDate?:  string;
@@ -102,21 +152,24 @@ export interface CreateTaskRequest {
   dimensions?:      string;
   fabricTypeId?:    number | null;
   softnessId?:      number | null;
-  price?:           string;
+  price?:                  string;
   advancePayment?:         string;
+  advancePaymentPercent?:  number;
   advancePaymentDate?:     string;
   advancePaymentMethod?:   'card' | 'cash';
   finalPayment?:           string;
   finalPaymentDate?:       string;
   finalPaymentMethod?:     'card' | 'cash';
   assigneePayment?: string;
-  assignees?:       { user: number; salary_amount?: string; is_paid?: boolean; paid_at?: string | null }[];
-  notes?:           string;
+  assignees?:            { userId: number; salaryAmount?: string | number }[];
+  notes?:                string;
+  deliveryConfirmed?:    boolean;
 }
 
 export interface TaskStatusDTO {
-  id: string | number;
-  name: string;
+  id:     string | number;
+  name:   string;
+  color?: string;
   order?: number;
 }
 
@@ -154,10 +207,10 @@ export const taskStatusService = {
   getAll() {
     return request<TaskStatusListResponse>('/tasks/task-statuses/', { method: 'GET' });
   },
-  create(name: string) {
-    return request<TaskStatusDTO>('/tasks/task-statuses/', { method: 'POST', body: { name } });
+  create(data: { name: string; color?: string }) {
+    return request<TaskStatusDTO>('/tasks/task-statuses/', { method: 'POST', body: data });
   },
-  update(id: string | number, data: { name?: string; order?: number }) {
+  update(id: string | number, data: { name?: string; color?: string; order?: number }) {
     return request<TaskStatusDTO>(`/tasks/task-statuses/${id}/`, { method: 'PATCH', body: data });
   },
   delete(id: string | number) {
@@ -283,6 +336,20 @@ export const taskService = {
     return request<void>(`/tasks/${id}/`, { method: 'DELETE' });
   },
 
+  markStarted(taskId: string, userId: number, isStarted: boolean) {
+    return request<{ isStarted: boolean; startedAt: string | null }>(
+      `/tasks/${taskId}/assignees/${userId}/mark-started/`,
+      { method: 'POST', body: { isStarted } },
+    );
+  },
+
+  markDone(taskId: string, userId: number, isDone: boolean) {
+    return request<{ isDone: boolean; doneAt: string | null }>(
+      `/tasks/${taskId}/assignees/${userId}/mark-done/`,
+      { method: 'POST', body: { isDone } },
+    );
+  },
+
   getPayments(taskId: string, userId: number) {
     return request<PaymentDTO[]>(
       `/tasks/${taskId}/assignees/${userId}/payments/`,
@@ -302,6 +369,22 @@ export const taskService = {
       `/tasks/${taskId}/assignees/${userId}/payments/${paymentId}/`,
       { method: 'DELETE' },
     );
+  },
+
+  listPayments(taskId: string) {
+    return request<TaskPaymentDTO[]>(`/tasks/${taskId}/payments/`, { method: 'GET' });
+  },
+
+  addPayment(taskId: string, data: CreateTaskPaymentRequest) {
+    return request<TaskPaymentDTO>(`/tasks/${taskId}/payments/`, { method: 'POST', body: data });
+  },
+
+  removePayment(taskId: string, paymentId: number) {
+    return request<void>(`/tasks/${taskId}/payments/${paymentId}/`, { method: 'DELETE' });
+  },
+
+  getCostSummary(taskId: string) {
+    return request<CostSummaryDTO>(`/tasks/${taskId}/cost-summary/`, { method: 'GET' });
   },
 
   getComments(taskId: string) {

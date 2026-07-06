@@ -14,6 +14,6 @@ export interface ProductListResponse {
 
 export const productService = {
   getAll() {
-    return request<ProductListResponse>('/orders/products/', { method: 'GET' });
+    return request<ProductListResponse>('/catalog/products/', { method: 'GET' });
   },
 };

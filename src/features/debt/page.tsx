@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { SkTable, SkListRow } from '@/components/ui/Skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { debtService, type ClientDebtDTO, type DebtPayment } from '@/services/debt.service';
 import { clientService, type ClientDTO } from '@/services/client.service';
@@ -144,7 +145,7 @@ function PaymentsModal({ debt, onClose }: { debt: ClientDebtDTO; onClose: () => 
 
         <div className="overflow-y-auto flex-1">
           {isLoading ? (
-            <p className="text-sm text-text-muted text-center py-8">Բեռնվում է...</p>
+            <div className="p-3 space-y-1">{Array.from({ length: 5 }).map((_, i) => <SkListRow key={i} />)}</div>
           ) : payments.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 gap-2 text-text-muted">
               <svg className="w-8 h-8 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -268,14 +269,8 @@ export default function DebtPage() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-6 pb-6">
         {isLoading ? (
-          <div className="flex items-center justify-center h-48">
-            <div className="flex flex-col items-center gap-2 text-text-muted">
-              <svg className="w-6 h-6 animate-spin opacity-40" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-              </svg>
-              <p className="text-sm">Բեռնվում է...</p>
-            </div>
+          <div className="bg-white rounded-2xl border border-crm-border overflow-hidden p-4">
+            <SkTable rows={6} cols={5} />
           </div>
         ) : isError ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3 text-text-muted">

@@ -158,112 +158,165 @@ function TaskRow({
   const advance    = formatPrice(task.advancePayment);
   const final      = formatPrice(task.finalPayment);
 
+  const clientIcon = (
+    <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+    </svg>
+  );
+  const phoneIcon = (
+    <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10.8 19.79 19.79 0 010 2.18a2 2 0 012-.22h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+    </svg>
+  );
+  const warnIcon = (
+    <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2a10 10 0 110 20A10 10 0 0112 2zm0 5a1 1 0 00-1 1v5a1 1 0 002 0V8a1 1 0 00-1-1zm0 10a1 1 0 100-2 1 1 0 000 2z"/>
+    </svg>
+  );
+
+  const assigneeRows = assignees ? (
+    assignees.map((a) => {
+      const ticks   = a.isDone ? '✓✓✓' : a.isStarted ? '✓✓' : '✓';
+      const tickCls = a.isDone ? 'text-green-500' : a.isStarted ? 'text-primary' : 'text-gray-300';
+      return (
+        <div key={a.id} className="flex items-center gap-1.5 min-w-0">
+          <Avatar color={a.color} initials={a.initials} size="sm" />
+          <span className="text-xs text-dark truncate flex-1 min-w-0">{a.name}</span>
+          <span className={`text-[10px] font-bold tracking-tight flex-shrink-0 ${tickCls}`}>{ticks}</span>
+        </div>
+      );
+    })
+  ) : (
+    <div className="flex items-center gap-1.5 min-w-0">
+      <Avatar color={mainAssigneeColor} initials={mainAssigneeInitials} size="sm" />
+      <span className="text-xs text-dark truncate">{mainAssigneeName}</span>
+    </div>
+  );
+
+  const statusCell = task.section === 'archive' ? (
+    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusMap.get(currentStatusId)?.colorClass ?? 'bg-gray-100 text-gray-600'}`}>
+      {statusMap.get(currentStatusId)?.name ?? currentStatusId}
+    </span>
+  ) : (
+    <StatusCell
+      taskId={task.id}
+      currentStatusId={currentStatusId}
+      statusMap={statusMap}
+      allStatuses={allStatuses}
+      onChanged={setCurrentStatusId}
+    />
+  );
+
   return (
-    <div
-      onClick={() => onOpen(task)}
-      className="grid items-center gap-3 px-4 py-3 border-b border-crm-border hover:bg-primary/[0.03] transition-colors cursor-pointer last:border-0 last:rounded-b-2xl group"
-      style={{ gridTemplateColumns: COLS }}
-    >
-      {/* 1. ID + name + client + phone */}
-      <div className="min-w-0 flex flex-col gap-0.5">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="flex-shrink-0 text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-md leading-none whitespace-nowrap">
+    <>
+      {/* ── Mobile card (< md) ─────────────────────────────────────── */}
+      <div
+        onClick={() => onOpen(task)}
+        className="md:hidden px-4 py-3.5 border-b border-crm-border last:border-0 last:rounded-b-2xl hover:bg-primary/[0.03] transition-colors cursor-pointer"
+      >
+        {/* ID + name */}
+        <div className="flex items-start gap-2 mb-2">
+          <span className="mt-0.5 flex-shrink-0 text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-md leading-none">
             {task.taskId}
           </span>
-          <p className="text-sm font-semibold text-dark truncate group-hover:text-primary transition-colors">
-            {task.name}
-          </p>
+          <p className="text-sm font-semibold text-dark leading-snug">{task.name}</p>
         </div>
+
+        {/* Client + phone */}
         {(task.client || task.phone) && (
-          <div className="flex items-center gap-2 pl-0.5">
+          <div className="flex items-center gap-3 mb-2 pl-0.5 flex-wrap">
             {task.client && (
-              <span className="text-[11px] text-text-muted truncate max-w-[160px] flex items-center gap-1">
-                <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                </svg>
-                {task.client}
+              <span className="text-[11px] text-text-muted flex items-center gap-1 min-w-0">
+                {clientIcon}<span className="truncate max-w-[130px]">{task.client}</span>
               </span>
             )}
             {task.phone && (
-              <span className="text-[11px] text-text-muted/70 truncate flex items-center gap-1">
-                <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 10.8 19.79 19.79 0 0 0 .22 2.18a2 2 0 012-.22h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
-                </svg>
-                {task.phone}
+              <span className="text-[11px] text-text-muted/70 flex items-center gap-1">
+                {phoneIcon}{task.phone}
               </span>
             )}
           </div>
         )}
+
+        {/* Assignees */}
+        <div className="flex flex-col gap-1 mb-3 pl-0.5">{assigneeRows}</div>
+
+        {/* Bottom bar: deadline · price | status */}
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {task.deadline ? (
+              <span className={`text-xs font-medium flex items-center gap-0.5 ${deadline.overdue ? 'text-error' : deadline.today ? 'text-warning' : 'text-text-muted'}`}>
+                {deadline.overdue && warnIcon}
+                {deadline.label}
+              </span>
+            ) : null}
+            {totalPrice && <span className="text-xs font-bold text-dark">{totalPrice}</span>}
+          </div>
+          <div className="flex-shrink-0 w-28">{statusCell}</div>
+        </div>
       </div>
 
-      {/* 2. Assignees */}
-      <div className="flex items-center gap-1.5 min-w-0">
-        <div className="flex -space-x-1.5 flex-shrink-0">
-          <Avatar color={mainAssigneeColor} initials={mainAssigneeInitials} size="sm" />
-          {extraCount > 0 && (
-            <div className="w-6 h-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center">
-              <span className="text-[9px] font-bold text-text-muted">+{extraCount}</span>
+      {/* ── Desktop row (≥ md) ─────────────────────────────────────── */}
+      <div
+        onClick={() => onOpen(task)}
+        className="hidden md:grid items-center gap-3 px-4 py-3 border-b border-crm-border hover:bg-primary/[0.03] transition-colors cursor-pointer last:border-0 last:rounded-b-2xl group"
+        style={{ gridTemplateColumns: COLS }}
+      >
+        {/* 1. ID + name + client + phone */}
+        <div className="min-w-0 flex flex-col gap-0.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="flex-shrink-0 text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-md leading-none whitespace-nowrap">
+              {task.taskId}
+            </span>
+            <p className="text-sm font-semibold text-dark truncate group-hover:text-primary transition-colors">{task.name}</p>
+          </div>
+          {(task.client || task.phone) && (
+            <div className="flex items-center gap-2 pl-0.5">
+              {task.client && (
+                <span className="text-[11px] text-text-muted truncate max-w-[160px] flex items-center gap-1">
+                  {clientIcon}{task.client}
+                </span>
+              )}
+              {task.phone && (
+                <span className="text-[11px] text-text-muted/70 truncate flex items-center gap-1">
+                  {phoneIcon}{task.phone}
+                </span>
+              )}
             </div>
           )}
         </div>
-        <span className="text-xs text-dark truncate">{mainAssigneeName}</span>
-      </div>
 
-      {/* 3. Deadline */}
-      <div className="flex flex-col gap-0.5">
-        {task.deadline ? (
-          <span className={`text-xs font-medium flex items-center gap-1 ${
-            deadline.overdue ? 'text-error' : deadline.today ? 'text-warning' : 'text-dark'
-          }`}>
-            {deadline.overdue && (
-              <svg className="w-3 h-3 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2a10 10 0 110 20A10 10 0 0112 2zm0 5a1 1 0 00-1 1v5a1 1 0 002 0V8a1 1 0 00-1-1zm0 10a1 1 0 100-2 1 1 0 000 2z"/>
-              </svg>
-            )}
-            {deadline.label}
-          </span>
-        ) : (
-          <span className="text-xs text-text-muted">—</span>
-        )}
-        {task.acceptanceDate && (
-          <span className="text-[10px] text-text-muted">
-            Ստ: {acceptance.label}
-          </span>
-        )}
-      </div>
+        {/* 2. Assignees */}
+        <div className="flex flex-col gap-1 min-w-0">{assigneeRows}</div>
 
-      {/* 4. Price */}
-      <div className="flex flex-col gap-0.5 min-w-0">
-        {totalPrice ? (
-          <>
-            <span className="text-sm font-bold text-dark">{totalPrice}</span>
-            <div className="flex items-center gap-1 flex-wrap">
-              {advance && <span className="text-[10px] text-success bg-success/10 px-1.5 rounded font-medium">↑{advance}</span>}
-              {final   && <span className="text-[10px] text-primary bg-primary/10 px-1.5 rounded font-medium">↓{final}</span>}
-            </div>
-          </>
-        ) : (
-          <span className="text-xs text-text-muted">—</span>
-        )}
-      </div>
+        {/* 3. Deadline */}
+        <div className="flex flex-col gap-0.5">
+          {task.deadline ? (
+            <span className={`text-xs font-medium flex items-center gap-1 ${deadline.overdue ? 'text-error' : deadline.today ? 'text-warning' : 'text-dark'}`}>
+              {deadline.overdue && warnIcon}
+              {deadline.label}
+            </span>
+          ) : <span className="text-xs text-text-muted">—</span>}
+          {task.acceptanceDate && <span className="text-[10px] text-text-muted">Ստ: {acceptance.label}</span>}
+        </div>
 
-      {/* 5. Status */}
-      {task.section === 'archive' ? (
-        <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
-          statusMap.get(currentStatusId)?.colorClass ?? 'bg-gray-100 text-gray-600'
-        }`}>
-          {statusMap.get(currentStatusId)?.name ?? currentStatusId}
-        </span>
-      ) : (
-        <StatusCell
-          taskId={task.id}
-          currentStatusId={currentStatusId}
-          statusMap={statusMap}
-          allStatuses={allStatuses}
-          onChanged={setCurrentStatusId}
-        />
-      )}
-    </div>
+        {/* 4. Price */}
+        <div className="flex flex-col gap-0.5 min-w-0">
+          {totalPrice ? (
+            <>
+              <span className="text-sm font-bold text-dark">{totalPrice}</span>
+              <div className="flex items-center gap-1 flex-wrap">
+                {advance && <span className="text-[10px] text-success bg-success/10 px-1.5 rounded font-medium">↑{advance}</span>}
+                {final   && <span className="text-[10px] text-primary bg-primary/10 px-1.5 rounded font-medium">↓{final}</span>}
+              </div>
+            </>
+          ) : <span className="text-xs text-text-muted">—</span>}
+        </div>
+
+        {/* 5. Status */}
+        <div onClick={(e) => e.stopPropagation()}>{statusCell}</div>
+      </div>
+    </>
   );
 }
 
@@ -301,15 +354,16 @@ export default function TaskList({ tasks, projectName }: TaskListProps) {
 
   return (
     <>
-      <div className="overflow-x-auto px-3 md:px-6 pt-2 pb-4 flex-1">
+      <div className="overflow-y-auto md:overflow-x-auto px-3 md:px-6 pt-2 pb-4 flex-1">
         {tasks.length === 0 ? (
           <div className="flex items-center justify-center h-48 text-text-muted text-sm">
             Պատverernеr չkаn
           </div>
         ) : (
-          <div className="min-w-[700px] bg-white rounded-2xl border border-crm-border shadow-sm">
+          <div className="bg-white rounded-2xl border border-crm-border shadow-sm">
+            {/* Desktop header — hidden on mobile */}
             <div
-              className="grid gap-3 px-4 py-2.5 bg-gray-50/80 border-b border-crm-border rounded-t-2xl"
+              className="hidden md:grid gap-3 px-4 py-2.5 bg-gray-50/80 border-b border-crm-border rounded-t-2xl"
               style={{ gridTemplateColumns: COLS }}
             >
               <span className="text-[11px] font-bold text-text-muted uppercase tracking-wide">Անուն / Հաճ.</span>
@@ -334,9 +388,10 @@ export default function TaskList({ tasks, projectName }: TaskListProps) {
 
       {openTask && (
         <TaskDetailModal
-          task={openTask}
+          task={tasks.find((t) => t.id === openTask.id) ?? openTask}
           projectName={projectName}
           onClose={() => setOpenTask(null)}
+          allowSendDelivery={true}
         />
       )}
     </>

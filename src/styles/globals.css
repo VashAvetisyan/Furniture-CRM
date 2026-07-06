@@ -125,7 +125,10 @@
 /* ── Base ────────────────────────────────────────────────────────────────── */
 
 html { scroll-behavior: smooth; }
-body { @apply bg-light text-dark; }
+body {
+  @apply bg-light text-dark;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
 
 /* ── Transitions for theme switch ────────────────────────────────────────── */
 

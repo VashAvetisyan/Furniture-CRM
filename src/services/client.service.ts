@@ -27,6 +27,8 @@ export interface ClientDTO {
   email:          string;
   address:        string;
   notes:          string;
+  description:    string;
+  id_document:    string;
   source:         SourceDTO | null;
   next_call_date: string | null;
   last_called_at: string | null;
@@ -35,6 +37,7 @@ export interface ClientDTO {
 }
 
 export interface CreateClientRequest {
+  client_type?:   'individual' | 'legal';
   first_name:     string;
   last_name?:     string;
   company_name?:  string;
@@ -43,6 +46,8 @@ export interface CreateClientRequest {
   email?:         string;
   address?:       string;
   notes?:         string;
+  description?:   string;
+  id_document?:   string;
   source?:        number | null;
   next_call_date?: string | null;
   last_called_at?: string | null;

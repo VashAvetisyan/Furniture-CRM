@@ -1,4 +1,5 @@
-'use client';
+﻿'use client';
+import { SkTable } from '@/components/ui/Skeleton';
 
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -660,7 +661,7 @@ export default function CatalogPage() {
       {/* Grid */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-4 sm:pb-6">
         {isLoading ? (
-          <div className="flex items-center justify-center h-48 text-text-muted text-sm">Բեռնվում է...</div>
+          <div className="bg-white rounded-2xl border border-crm-border overflow-hidden p-4"><SkTable rows={6} cols={5} /></div>
         ) : isError ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
             <p className="text-sm text-error">Սերվերի սխալ</p>
@@ -726,3 +727,4 @@ export default function CatalogPage() {
     </div>
   );
 }
+

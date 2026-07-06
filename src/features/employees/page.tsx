@@ -1,6 +1,7 @@
 ﻿'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { SkEmployeeCard, SkEmployeeRow } from '@/components/ui/Skeleton';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { EmployeeListItem, Level } from './types';
@@ -288,16 +289,16 @@ function EmployeeActivityCard({ employee }: { employee: EmployeeListItem }) {
         {/* Task stats */}
         <div className="flex items-start justify-center gap-5 mt-4 w-full">
           <div>
-            <p className="text-xl font-bold text-dark">{employee.tasks.backlog}</p>
-            <p className="text-[10px] text-text-muted leading-tight">Backlog<br />խնդիրներ</p>
+            <p className="text-xl font-bold text-dark">{employee.tasks.total}</p>
+            <p className="text-[10px] text-text-muted leading-tight">Ընդամենը<br />խնդիրներ</p>
           </div>
           <div>
             <p className="text-xl font-bold text-dark">{employee.tasks.inProgress}</p>
             <p className="text-[10px] text-text-muted leading-tight">Ընթացիկ<br />խնդիրներ</p>
           </div>
           <div>
-            <p className="text-xl font-bold text-dark">{employee.tasks.inReview}</p>
-            <p className="text-[10px] text-text-muted leading-tight">Ստուգման<br />խնդիրներ</p>
+            <p className="text-xl font-bold text-dark">{employee.tasks.done}</p>
+            <p className="text-[10px] text-text-muted leading-tight">Ավարտված<br />խնդիրներ</p>
           </div>
         </div>
       </div>
@@ -408,9 +409,15 @@ export default function EmployeesPage() {
     },
   });
 
-  const allEmployees = (data?.data ?? []).slice().sort((a, b) => Number(b.id) - Number(a.id));
-  const total        = allEmployees.length;
-  const employees    = allEmployees.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const allEmployees = useMemo(
+    () => (data?.data ?? []).slice().sort((a, b) => Number(b.id) - Number(a.id)),
+    [data],
+  );
+  const total     = allEmployees.length;
+  const employees = useMemo(
+    () => allEmployees.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [allEmployees, page],
+  );
 
   return (
     <div className="animate-fade-in">
@@ -453,9 +460,15 @@ export default function EmployeesPage() {
           Սխալ — չհաջողվեց բեռնել աշխատակիցներին
         </div>
       ) : isLoading ? (
-        <div className="flex items-center justify-center h-48 text-text-muted text-sm">
-          Բեռնվում է...
-        </div>
+        view === 'list' ? (
+          <div className="flex flex-col gap-3">
+            {Array.from({ length: 6 }).map((_, i) => <SkEmployeeRow key={i} />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+            {Array.from({ length: 8 }).map((_, i) => <SkEmployeeCard key={i} />)}
+          </div>
+        )
       ) : view === 'list' ? (
         <div className="flex flex-col gap-3">
           {employees.map(emp => (

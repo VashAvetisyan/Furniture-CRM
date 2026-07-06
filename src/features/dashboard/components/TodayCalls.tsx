@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { DashboardCall } from '@/services/task.service';
+import { SkListRow } from '@/components/ui/Skeleton';
 
 export default function TodayCalls({
   calls,
@@ -20,7 +21,7 @@ export default function TodayCalls({
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-text-muted text-center py-6">Բեռնվում...</p>
+        <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <SkListRow key={i} />)}</div>
       ) : !calls || calls.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-8">
           <span className="text-3xl">📭</span>

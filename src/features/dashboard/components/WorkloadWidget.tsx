@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { employeeService } from '@/services/employee.service';
 import Avatar from '@/components/ui/Avatar';
 import Link from 'next/link';
+import { SkBlock } from '@/components/ui/Skeleton';
 
 export default function WorkloadWidget() {
   const { data: empData, isLoading } = useQuery({
@@ -13,11 +14,7 @@ export default function WorkloadWidget() {
 
   const employees = (empData?.data ?? [])
     .filter((e) => !e.onVacation)
-    .sort((a, b) => {
-      const aT = a.tasks.inProgress + a.tasks.inReview + a.tasks.backlog;
-      const bT = b.tasks.inProgress + b.tasks.inReview + b.tasks.backlog;
-      return bT - aT;
-    });
+    .sort((a, b) => b.tasks.total - a.tasks.total);
 
   return (
     <div className="bg-white rounded-2xl p-5 shadow-sm">
@@ -41,21 +38,31 @@ export default function WorkloadWidget() {
       {/* Legend */}
       <div className="flex items-center gap-3 mb-3">
         <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-primary"/><span className="text-[11px] text-text-muted">Ընթացիկ</span></div>
-        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-warning"/><span className="text-[11px] text-text-muted">Ստուգման</span></div>
-        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-gray-200"/><span className="text-[11px] text-text-muted">Backlog</span></div>
+        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-success"/><span className="text-[11px] text-text-muted">Ավարտված</span></div>
+        <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-gray-200"/><span className="text-[11px] text-text-muted">Մնացած</span></div>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-text-muted text-center py-4">Բեռնվում...</p>
+        <div className="space-y-3.5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <SkBlock className="w-7 h-7 rounded-full flex-shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <SkBlock className="h-3 w-24" />
+                <SkBlock className="h-2 w-full rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : employees.length === 0 ? (
         <p className="text-sm text-text-muted text-center py-4">Կատարող չկա</p>
       ) : (
         <div className="space-y-3.5">
           {employees.map((emp) => {
             const active  = emp.tasks.inProgress;
-            const review  = emp.tasks.inReview;
-            const backlog = emp.tasks.backlog;
-            const total   = active + review + backlog;
+            const done    = emp.tasks.done;
+            const pending = Math.max(0, emp.tasks.total - active - done);
+            const total   = emp.tasks.total;
             return (
               <div key={emp.id} className="flex items-center gap-2.5">
                 <Avatar color={emp.color} initials={emp.initials} size="sm" />
@@ -74,17 +81,17 @@ export default function WorkloadWidget() {
                         className="h-full bg-primary rounded-full"
                       />
                     )}
-                    {review > 0 && (
+                    {done > 0 && (
                       <div
-                        title={`Ստուգման: ${review}`}
-                        style={{ flex: review }}
-                        className="h-full bg-warning rounded-full"
+                        title={`Ավարտված: ${done}`}
+                        style={{ flex: done }}
+                        className="h-full bg-success rounded-full"
                       />
                     )}
-                    {backlog > 0 && (
+                    {pending > 0 && (
                       <div
-                        title={`Backlog: ${backlog}`}
-                        style={{ flex: backlog }}
+                        title={`Մնացած: ${pending}`}
+                        style={{ flex: pending }}
                         className="h-full bg-gray-300 rounded-full"
                       />
                     )}

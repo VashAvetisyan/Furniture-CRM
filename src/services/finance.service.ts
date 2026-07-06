@@ -32,6 +32,7 @@ export interface TransactionDTO {
   amount:                string;
   description:           string;
   transaction_date:      string;
+  payment_method?:       'cash' | 'card' | null;
   supplier:              number | null;
   task:                  number | null;
   receipt_number:        string;
@@ -44,11 +45,25 @@ export interface TransactionListResponse {
   count:   number;
 }
 
+export interface PaymentMethodSummary {
+  total_in:  number;
+  total_out: number;
+  balance:   number;
+}
+
 export interface TransactionSummary {
-  total_in:    string;
-  total_out:   string;
-  balance:     string;
-  by_category: Record<string, { label: string; total_in: string; total_out: string }>;
+  total_in:           string | number;
+  total_out:          string | number;
+  balance:            string | number;
+  by_category:        Record<string, { label: string; total_in: string; total_out: string }>;
+  by_payment_method?: {
+    cash?: PaymentMethodSummary;
+    card?: PaymentMethodSummary;
+  };
+  transfers?: {
+    cash_to_card?: number;
+    card_to_cash?: number;
+  };
 }
 
 export interface CreateTransactionRequest {
@@ -71,6 +86,7 @@ export interface TransactionFilters {
   date_to?:         string;
   search?:          string;
   custom_category?: number;
+  task?:            number;
 }
 
 function buildQuery(filters: TransactionFilters): string {
@@ -81,6 +97,7 @@ function buildQuery(filters: TransactionFilters): string {
   if (filters.date_to)         p.set('date_to',         filters.date_to);
   if (filters.search)          p.set('search',          filters.search);
   if (filters.custom_category) p.set('custom_category', String(filters.custom_category));
+  if (filters.task)            p.set('task',            String(filters.task));
   return p.toString();
 }
 

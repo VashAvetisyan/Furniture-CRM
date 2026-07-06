@@ -17,7 +17,7 @@ function formatAmount(a?: string) {
 
 function getSupplierName(invoice: InvoiceDTO): string {
   if (typeof invoice.supplier === 'object') return invoice.supplier.name;
-  return invoice.supplierName ?? String(invoice.supplier);
+  return invoice.supplier_name ?? String(invoice.supplier);
 }
 
 export default function InvoicesPage() {
@@ -92,26 +92,26 @@ export default function InvoicesPage() {
 
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-dark truncate">{getSupplierName(inv)}</p>
-                  {inv.invoiceNumber && (
-                    <p className="text-xs text-text-muted">{inv.invoiceNumber}</p>
+                  {inv.invoice_number && (
+                    <p className="text-xs text-text-muted">{inv.invoice_number}</p>
                   )}
                 </div>
 
-                <span className="text-sm text-dark">{formatDate(inv.date)}</span>
+                <span className="text-sm text-dark">{formatDate(inv.issue_date)}</span>
 
                 <span className={`text-sm font-medium ${
-                  inv.dueDate && new Date(inv.dueDate) < new Date() ? 'text-error' : 'text-dark'
+                  inv.due_date && new Date(inv.due_date) < new Date() ? 'text-error' : 'text-dark'
                 }`}>
-                  {formatDate(inv.dueDate)}
+                  {formatDate(inv.due_date ?? undefined)}
                 </span>
 
                 <span className="text-sm font-bold text-dark">{formatAmount(inv.amount)}</span>
 
                 <span className={`text-xs font-semibold px-2.5 py-1 rounded-full text-center ${
-                  inv.status === 'paid'     ? 'bg-success/10 text-success' :
-                  inv.status === 'overdue'  ? 'bg-error/10 text-error'    :
-                  inv.status === 'pending'  ? 'bg-warning/10 text-warning' :
-                                              'bg-gray-100 text-gray-600'
+                  inv.status === 'paid'    ? 'bg-success/10 text-success' :
+                  inv.status === 'partial' ? 'bg-warning/10 text-warning' :
+                  inv.status === 'unpaid'  ? 'bg-error/10 text-error'     :
+                                             'bg-gray-100 text-gray-600'
                 }`}>
                   {inv.status ?? '—'}
                 </span>
