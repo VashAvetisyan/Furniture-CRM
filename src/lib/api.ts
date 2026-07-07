@@ -1,4 +1,4 @@
-﻿export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://fe87-2a00-f3c-21d5-0-10ba-b336-9c9b-f6b3.ngrok-free.app/api/v1';
+﻿export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.tmhub.am/api/v1';
 
 export function mediaUrl(avatar: string | null | undefined): string | null {
   if (!avatar) return null;
