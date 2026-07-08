@@ -169,7 +169,7 @@ export default function LoginPage() {
       </div>
 
       {/* ── Right panel (all screens) ─────────────────────────── */}
-      <div className="relative flex-1 min-h-screen flex items-center justify-center p-5 sm:p-8 lg:p-10 bg-white">
+      <div className="relative flex-1 min-h-screen flex items-center justify-center p-5 sm:p-8 lg:p-10 bg-gradient-to-b from-white to-gray-50">
         {/* Gradient overlay — mobile & tablet only */}
         <div className="absolute inset-0 lg:hidden" style={{ background: GRADIENT }} />
 
@@ -200,7 +200,7 @@ export default function LoginPage() {
           </div>
 
           {/* Form card */}
-          <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 lg:shadow-none lg:rounded-none lg:p-0 lg:bg-transparent">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 lg:rounded-3xl lg:p-10 lg:ring-1 lg:ring-black/5">
             <p className="text-xl font-bold text-dark text-center mb-6 lg:text-2xl lg:mb-8">
               Մուտք {brandName}
             </p>

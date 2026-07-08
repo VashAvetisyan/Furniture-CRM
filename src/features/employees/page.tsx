@@ -323,7 +323,7 @@ function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (v: ViewMode
               : 'text-text-muted hover:text-dark'
           }`}
         >
-          {v === 'list' ? 'Ցուցակ' : 'Ակտիվություն'}
+          {v === 'list' ? 'Ցուցակ' : 'Բլոկներ'}
         </button>
       ))}
     </div>

@@ -139,7 +139,7 @@ export default function PendingPaymentsPage() {
               <circle cx="12" cy="12" r="9"/>
               <path d="M12 6v6l4 2"/>
             </svg>
-            <p className="text-sm">Սпасвог վчарumнeр չkан</p>
+            <p className="text-sm">Սպասվող վճարումներ չկան</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

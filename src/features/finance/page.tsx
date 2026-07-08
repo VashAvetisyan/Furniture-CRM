@@ -883,7 +883,7 @@ export default function FinancePage() {
                 <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
               </svg>
             </div>
-            <p className="text-sm text-text-muted">գործարքում չկան</p>
+            <p className="text-sm text-text-muted">Գործարքումներ չկան</p>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-crm-border overflow-hidden">

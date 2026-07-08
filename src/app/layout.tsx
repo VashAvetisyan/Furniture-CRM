@@ -14,9 +14,6 @@ const font = Noto_Sans_Armenian({
 export const metadata: Metadata = {
   title: 'CRM Frontend',
   description: 'Enterprise CRM Management System',
-  icons: {
-    icon: '/favicon.ico',
-  },
   viewport: {
     width: 'device-width',
     initialScale: 1,

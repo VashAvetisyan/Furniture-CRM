@@ -263,7 +263,7 @@ export default function SalariesPage() {
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={5} className="text-center py-14 text-text-muted text-sm"> չկա</td></tr>
+              <tr><td colSpan={5} className="text-center py-14 text-text-muted text-sm">Աշխատավարձներ չկան</td></tr>
             ) : filtered.map((emp) => {
               const pct = emp.total > 0 ? (emp.paid / emp.total) * 100 : 0;
               const isFullyPaid = emp.unpaid === 0;

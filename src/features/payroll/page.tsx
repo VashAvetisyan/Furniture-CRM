@@ -457,8 +457,7 @@ export default function PayrollPage() {
                   {v.scope}
                 </span>
                 <div className="min-w-0">
-                  <p className="text-xs font-mono font-semibold text-dark leading-tight">{v.name}</p>
-                  {v.label && <p className="text-[11px] text-text-muted leading-tight">{v.label}</p>}
+                  {v.label && <p className="text-xs text-dark leading-tight">{v.label}</p>}
                 </div>
               </div>
             ))}

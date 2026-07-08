@@ -68,7 +68,7 @@ function PositionsPanel({
       </div>
 
       {adding && (
-        <div className="flex items-center gap-1.5">
+        <div className="p-2.5 rounded-xl border-2 border-primary/30 bg-primary/5 flex flex-col gap-1.5">
           <input
             autoFocus
             value={name}
@@ -78,14 +78,23 @@ function PositionsPanel({
               if (e.key === 'Escape') { setAdding(false); setName(''); }
             }}
             placeholder="Պաշտոնի անուն..."
-            className="flex-1 text-sm px-2.5 py-1.5 border border-primary rounded-lg outline-none"
+            className="w-full text-sm px-2.5 py-1.5 border border-primary rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
           />
-          <button
-            onClick={submit}
-            className="px-2.5 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-hover"
-          >
-            OK
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={submit}
+              disabled={!name.trim()}
+              className="flex-1 px-2.5 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-hover disabled:opacity-40 transition-colors"
+            >
+              Ավելացնել
+            </button>
+            <button
+              onClick={() => { setAdding(false); setName(''); }}
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-200 text-gray-400 transition-colors flex-shrink-0"
+            >
+              <CloseIcon className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -191,10 +200,10 @@ function AccessPanel({ position }: { position: PositionDTO }) {
       <div className="flex-1 overflow-y-auto space-y-2 mt-5 pr-1">
         {isLoading ? (
           <div className="flex items-center justify-center h-32 text-text-muted text-sm">
-            Բեռvum է․․․
+            Բեռնվում է...
           </div>
         ) : pages.length === 0 ? (
-          <p className="text-sm text-text-muted text-center py-10">Էջeр չկan</p>
+          <p className="text-sm text-text-muted text-center py-10">Էջեր չկան</p>
         ) : (
           pages
             .filter((p) => !p.is_director_only)
@@ -345,7 +354,7 @@ function StatusesPanel() {
         <div>
           <h2 className="text-base font-bold text-dark">Կատարման կարգավիճակներ</h2>
           <p className="text-xs text-text-muted mt-0.5">
-            Սեղմեք Կարգավիճակի վրա՝ խմբագրելու համար
+            Սեղմեք կարգավիճակի վրա՝ խմբագրելու համար
           </p>
         </div>
         <button
@@ -369,7 +378,7 @@ function StatusesPanel() {
                 if (e.key === 'Enter')  submitAdd();
                 if (e.key === 'Escape') { setAdding(false); setNewName(''); }
               }}
-              placeholder="Kargichy anunn..."
+              placeholder="Կարգավիճակի անունը..."
               className="flex-1 text-sm px-3 py-1.5 border border-primary rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
             />
             <button
@@ -393,10 +402,10 @@ function StatusesPanel() {
       <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
         {isLoading ? (
           <div className="flex items-center justify-center h-32 text-text-muted text-sm">
-            Beռvum e...
+            Բեռնվում է...
           </div>
         ) : statuses.length === 0 && !adding ? (
-          <p className="text-sm text-text-muted text-center py-10">Kargichers chkan</p>
+          <p className="text-sm text-text-muted text-center py-10">Կարգավիճակներ չկան</p>
         ) : (
           statuses.map((s) => (
             <div
@@ -536,7 +545,7 @@ function TaskSettingsPanel() {
   if (isLoading) {
     return (
       <div className="flex-1 bg-white rounded-2xl shadow-sm flex items-center justify-center">
-        <p className="text-sm text-text-muted">Beռvum e...</p>
+        <p className="text-sm text-text-muted">Բեռնվում է...</p>
       </div>
     );
   }
@@ -544,14 +553,14 @@ function TaskSettingsPanel() {
   return (
     <div className="flex-1 bg-white rounded-2xl shadow-sm p-5 flex flex-col gap-8 min-h-0 overflow-y-auto">
       <div>
-        <h2 className="text-base font-bold text-dark mb-0.5">Patvanerи naxtakazmery</h2>
-        <p className="text-xs text-text-muted">Karqavorel lrancumner patvanerи hamar</p>
+        <h2 className="text-base font-bold text-dark mb-0.5">Պատվերների կարգավորումներ</h2>
+        <p className="text-xs text-text-muted">Կարգավորել վճարումները պատվերների համար</p>
       </div>
 
       {/* Advance % */}
       <SettingRow
-        label="Kanxavchar lrancum (%)"
-        hint="Nor patveri batsmanis kanxavchary avtomatik kkancvi ayd tokosy"
+        label="Կանխավճարի տոկոս (%)"
+        hint="Նոր պատվերի ստեղծման ժամանակ կանխավճարը ավտոմատ կհաշվարկվի այդ տոկոսով"
       >
         <div className="flex items-center gap-3">
           <div className="relative w-32">
@@ -576,20 +585,20 @@ function TaskSettingsPanel() {
                 : 'bg-primary text-white hover:bg-primary-hover disabled:opacity-40'
             }`}
           >
-            {savingPct ? '...' : saved === 'pct' ? 'Pahpanvec ✓' : 'Pahpanel'}
+            {savingPct ? '...' : saved === 'pct' ? 'Պահպանվեց ✓' : 'Պահպանել'}
           </button>
         </div>
         {pct && !isNaN(parseFloat(pct)) && (
           <p className="mt-2 text-xs text-text-muted">
-            Orinak. 100 000 ֏ × {pct}% = <span className="font-semibold text-dark">{Math.round(100000 * parseFloat(pct) / 100).toLocaleString()} ֏</span>
+            Օրինակ. 100 000 ֏ × {pct}% = <span className="font-semibold text-dark">{Math.round(100000 * parseFloat(pct) / 100).toLocaleString()} ֏</span>
           </p>
         )}
       </SettingRow>
 
       {/* Deadline days */}
       <SettingRow
-        label="Verjanashmkety (orerы)"
-        hint="Yntunman amsamivic heto incha orer deadline-y avtomatik kkancvi"
+        label="Վերջնաժամկետը (օրեր)"
+        hint="Ընդունման ամսաթվից քանի օր հետո վերջնաժամկետը ավտոմատ կհաշվարկվի"
       >
         <div className="flex items-center gap-3">
           <div className="relative w-32">
@@ -602,7 +611,7 @@ function TaskSettingsPanel() {
               placeholder="0"
               className="w-full px-3 py-2 pr-16 border border-crm-border rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted pointer-events-none">or</span>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted pointer-events-none">օր</span>
           </div>
           <button
             onClick={saveDays}
@@ -613,12 +622,12 @@ function TaskSettingsPanel() {
                 : 'bg-primary text-white hover:bg-primary-hover disabled:opacity-40'
             }`}
           >
-            {savingDays ? '...' : saved === 'days' ? 'Pahpanvec ✓' : 'Pahpanel'}
+            {savingDays ? '...' : saved === 'days' ? 'Պահպանվեց ✓' : 'Պահպանել'}
           </button>
         </div>
         {days && !isNaN(parseInt(days)) && (
           <p className="mt-2 text-xs text-text-muted">
-            Orinak. Yntunman amsativ + <span className="font-semibold text-dark">{days} or</span> = deadline
+            Օրինակ. Ընդունման ամսաթիվ + <span className="font-semibold text-dark">{days} օր</span> = վերջնաժամկետ
           </p>
         )}
       </SettingRow>
@@ -684,7 +693,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Content */}z
+      {/* Content */}
       {tab === 'positions' ? (
         <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0 overflow-hidden">
           <PositionsPanel
@@ -699,7 +708,7 @@ export default function SettingsPage() {
           ) : (
             <div className="flex-1 bg-white rounded-2xl shadow-sm flex items-center justify-center">
               <p className="text-sm text-text-muted">
-                Ընտրեք Պաշտոն՝ Թույլատվություններն տալու համար
+                Ընտրեք պաշտոն՝ թույլատվություններ տալու համար
               </p>
             </div>
           )}

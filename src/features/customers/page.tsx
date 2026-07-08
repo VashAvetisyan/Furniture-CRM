@@ -286,7 +286,7 @@ function CustomerModal({ initial, sources, onClose }: {
 
         <div className="flex items-center justify-between px-6 py-4 border-b border-crm-border flex-shrink-0">
           <h2 className="text-base font-bold text-dark">
-            {initial ? 'Խմբагրел' : 'Նоr hачаxоrd'}
+            {initial ? 'Խմբագրել' : 'Նոր հաճախորդ'}
           </h2>
           <button onClick={onClose} className="text-text-muted hover:text-dark transition-colors">
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -297,8 +297,7 @@ function CustomerModal({ initial, sources, onClose }: {
 
         <div className="px-6 py-5 flex flex-col gap-4 overflow-y-auto flex-1">
 
-          {/* Client type */}
-          <Field label="Տipі" optional>
+          <Field label="Տիպ" optional>
             <div className="flex rounded-xl overflow-hidden border border-crm-border">
               {(['individual', 'legal'] as const).map((t) => (
                 <button
@@ -307,28 +306,28 @@ function CustomerModal({ initial, sources, onClose }: {
                   onClick={() => setClientType(t)}
                   className={`flex-1 py-2.5 text-sm font-semibold transition-colors border-r border-crm-border last:border-r-0 ${clientType === t ? 'bg-primary text-white' : 'bg-white text-text-muted hover:bg-gray-50'}`}
                 >
-                  {t === 'individual' ? 'Ֆիզիկական' : 'Իравабанакан'}
+                  {t === 'individual' ? 'Ֆիզիկական' : 'Իրավաբանական'}
                 </button>
               ))}
             </div>
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Անун *">
-              <input className={inputCls} placeholder="Անун..." value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+            <Field label="Անուն *">
+              <input className={inputCls} placeholder="Անուն..." value={firstName} onChange={(e) => setFirstName(e.target.value)} />
             </Field>
-            <Field label="Азгануn" optional>
-              <input className={inputCls} placeholder="Азгануn..." value={lastName} onChange={(e) => setLastName(e.target.value)} />
+            <Field label="Ազգանուն" optional>
+              <input className={inputCls} placeholder="Ազգանուն..." value={lastName} onChange={(e) => setLastName(e.target.value)} />
             </Field>
           </div>
 
           {clientType === 'legal' && (
-            <Field label="Ynkerутян анун" optional>
+            <Field label="Ընկերության անուն" optional>
               <input className={inputCls} placeholder="LLC / ՍՊԸ..." value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
             </Field>
           )}
 
-          <Field label="Heřaxosaamar *">
+          <Field label="Հեռախոսահամար *">
             <div className="relative">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.69A2 2 0 012 .9h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.75a16 16 0 006.16 6.16l1.21-1.21a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
@@ -337,7 +336,7 @@ function CustomerModal({ initial, sources, onClose }: {
             </div>
           </Field>
 
-          <Field label="Lracucich heřaxos" optional>
+          <Field label="Լրացուցիչ հեռախոս" optional>
             <div className="relative">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.69A2 2 0 012 .9h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.75a16 16 0 006.16 6.16l1.21-1.21a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
@@ -355,25 +354,25 @@ function CustomerModal({ initial, sources, onClose }: {
             </div>
           </Field>
 
-          <Field label="Hascе" optional>
-            <input className={inputCls} placeholder="Qałak, połoc..." value={address} onChange={(e) => setAddress(e.target.value)} />
+          <Field label="Հասցե" optional>
+            <input className={inputCls} placeholder="Քաղաք, փողոց..." value={address} onChange={(e) => setAddress(e.target.value)} />
           </Field>
 
-          <Field label="Nshumer" optional>
+          <Field label="Նշումներ" optional>
             <textarea
               className={`${inputCls} resize-none`}
               rows={3}
-              placeholder="Nshumer hachaxordi masin..."
+              placeholder="Նշումներ հաճախորդի մասին..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
           </Field>
 
-          <Field label="Hajord zangi amsativ" optional>
+          <Field label="Հաջորդ զանգի ամսաթիվ" optional>
             <input type="date" className={inputCls} value={nextCallDate} onChange={(e) => setNextCallDate(e.target.value)} />
           </Field>
 
-          <Field label="Ałbyur" optional>
+          <Field label="Աղբյուր" optional>
             <div className="flex flex-wrap gap-2 items-center">
               {sources.map((s) => (
                 <button
@@ -399,7 +398,7 @@ function CustomerModal({ initial, sources, onClose }: {
                       if (e.key === 'Enter' && newSource.trim()) createSource(newSource.trim());
                       if (e.key === 'Escape') { setAddingSource(false); setNewSource(''); }
                     }}
-                    placeholder="Anunn..."
+                    placeholder="Անունը..."
                     disabled={creatingSource}
                     className="w-24 px-2 py-1 text-xs rounded-lg border border-primary outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-50"
                   />
@@ -415,7 +414,7 @@ function CustomerModal({ initial, sources, onClose }: {
 
         <div className="flex gap-2 px-6 py-4 border-t border-crm-border justify-end flex-shrink-0">
           <button onClick={onClose} className="px-4 py-2 text-sm font-semibold rounded-xl border border-crm-border text-text-muted hover:bg-gray-50 transition-colors">
-            Чеłarkеl
+            Չեղարկել
           </button>
           <button
             onClick={submit}
@@ -968,8 +967,7 @@ export default function CustomersPage() {
               </svg>
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium text-dark">{search ? 'Հածախորդներ չկա' : 'Դëрр Հածախորդներ չկա'}</p>
-              {!search && <p className="text-xs text-text-muted mt-1">Սկսբելու համար կաթլիկ կատարել</p>}
+              <p className="text-sm font-medium text-dark">{search ? 'Հաճախորդներ չկան' : 'Դեռ Հաճախորդներ չկա'}</p>
             </div>
           </div>
         ) : (

@@ -98,7 +98,7 @@ const NAV: NavEntry[] = [
   },
   { type: 'link',  label: 'Կատալոգ',      href: '/catalog',   Icon: WarehouseIcon  },
   { type: 'link',  label: 'Առաքում',          href: '/delivery',         Icon: DeliveryIcon        },
-  { type: 'link',  label: 'Սպասվող Վճարումներ', href: '/pending-payments', Icon: PendingPaymentsIcon },
+  { type: 'link',  label: 'Սպասվող Վճ․', href: '/pending-payments', Icon: PendingPaymentsIcon },
   { type: 'link',  label: 'Կարգավորումներ', href: '/settings',  Icon: SettingsIcon   },
 ];
 
@@ -110,16 +110,16 @@ function SubItem({ label, href, Icon, active }: {
   return (
     <Link
       href={href}
-      className={`relative flex items-center gap-2.5 pl-8 pr-3 py-2 rounded-lg text-sm font-medium transition-all ${
+      className={`relative w-full flex items-center gap-2.5 pl-8 pr-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
         active
-          ? 'text-primary bg-primary-light'
+          ? 'text-primary bg-primary-light shadow-sm'
           : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
       }`}
     >
       <Icon className="w-[15px] h-[15px] flex-shrink-0" />
       <span>{label}</span>
       {active && (
-        <span className="absolute -right-3 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-primary rounded-l-full" />
+        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary" />
       )}
     </Link>
   );
@@ -138,9 +138,9 @@ function GroupNavItem({ entry, isOpen, anyChildActive, onToggle, isChildActive }
     <div>
       <button
         onClick={onToggle}
-        className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+        className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
           anyChildActive
-            ? 'text-primary bg-primary-light'
+            ? 'text-primary bg-primary-light shadow-sm'
             : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
         }`}
       >
@@ -154,7 +154,7 @@ function GroupNavItem({ entry, isOpen, anyChildActive, onToggle, isChildActive }
           <path d="M6 9l6 6 6-6" />
         </svg>
         {anyChildActive && !isOpen && (
-          <span className="absolute -right-3 top-1/2 -translate-y-1/2 w-[3px] h-7 bg-primary rounded-l-full" />
+          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary" />
         )}
       </button>
 
@@ -183,16 +183,16 @@ function LinkNavItem({ label, href, Icon, active }: {
   return (
     <Link
       href={href}
-      className={`relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+      className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
         active
-          ? 'text-primary bg-primary-light'
+          ? 'text-primary bg-primary-light shadow-sm'
           : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
       }`}
     >
       <Icon className="w-[18px] h-[18px] flex-shrink-0" />
       <span>{label}</span>
       {active && (
-        <span className="absolute -right-3 top-1/2 -translate-y-1/2 w-[3px] h-7 bg-primary rounded-l-full" />
+        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary" />
       )}
     </Link>
   );
@@ -277,7 +277,7 @@ export default function Sidebar() {
       <div className="px-4 pt-5 pb-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           {/* Logo — skeleton while loading */}
-          <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0">
+          <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 shadow-sm shadow-primary/20 ring-1 ring-primary/10">
             {brandLoading ? (
               <div className="w-full h-full bg-gray-200 animate-pulse rounded-xl" />
             ) : logoSrc ? (
@@ -289,7 +289,7 @@ export default function Sidebar() {
                 className="w-full h-full object-contain"
               />
             ) : (
-              <div className="w-full h-full bg-primary flex items-center justify-center">
+              <div className="w-full h-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
                 <span className="text-white font-bold text-sm">
                   {brand?.name?.charAt(0).toUpperCase() ?? 'C'}
                 </span>
@@ -300,7 +300,7 @@ export default function Sidebar() {
           {brandLoading ? (
             <div className="h-4 w-20 bg-gray-200 animate-pulse rounded-lg" />
           ) : brand?.name ? (
-            <span className="font-bold text-dark text-sm leading-tight truncate">
+            <span className="font-bold text-dark text-sm leading-tight truncate tracking-tight">
               {brand.name}
             </span>
           ) : null}

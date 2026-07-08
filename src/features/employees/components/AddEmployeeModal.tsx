@@ -2,10 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type { Level, Gender } from '../types';
 import { employeeService } from '@/services/employee.service';
-import { positionService, type PositionDTO } from '@/services/position.service';
+import { positionService } from '@/services/position.service';
 
 interface AddEmployeeModalProps {
   onClose: () => void;
@@ -70,48 +70,24 @@ const randomColor = () => COLORS[Math.floor(Math.random() * COLORS.length)];
 
 // ── Position combobox ─────────────────────────────────────────────────────────
 
-function PositionCombobox({ value, onChange, onSelectId, error, allPositions, isLoading = false, onAddPosition }: {
+function PositionCombobox({ value, onChange, onSelectId, error, allPositions, isLoading = false }: {
   value: string;
   onChange: (v: string) => void;
   error?: string;
   onSelectId: (id: number) => void;
   allPositions: Array<{ id: number; name: string }>;
   isLoading?: boolean;
-  onAddPosition: (p: string) => void;
 }) {
   const [open, setOpen]     = useState(false);
-  const [adding, setAdding] = useState(false);
-  const [newPos, setNewPos] = useState('');
   const [dropStyle, setDropStyle] = useState<React.CSSProperties>({});
   const triggerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const queryClient = useQueryClient();
-
-  const [posError, setPosError] = useState('');
-
-  const { mutate: createPosition, isPending: isCreating } = useMutation({
-    mutationFn: (name: string) => positionService.create(name),
-    onSuccess: (created: PositionDTO) => {
-      queryClient.invalidateQueries({ queryKey: ['positions'] });
-      onAddPosition(created.name);
-      onChange(created.name);
-      onSelectId(created.id);
-      setAdding(false);
-      setNewPos('');
-      setOpen(false);
-      setPosError('');
-    },
-    onError: () => {
-      queryClient.invalidateQueries({ queryKey: ['positions'] });
-      setPosError('Արդеն կa. Ընтрел ցանкon');
-    },
-  });
 
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)
           && triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
-        setOpen(false); setAdding(false);
+        setOpen(false);
       }
     }
     document.addEventListener('mousedown', handler);
@@ -128,19 +104,6 @@ function PositionCombobox({ value, onChange, onSelectId, error, allPositions, is
 
   function select(p: { id: number; name: string }) { onChange(p.name); onSelectId(p.id); setOpen(false); }
 
-  function confirmNew() {
-    const t = newPos.trim();
-    if (!t) return;
-    const existing = allPositions.find((p) => p.name.toLowerCase() === t.toLowerCase());
-    if (existing) {
-      select(existing);
-      setAdding(false);
-      setNewPos('');
-      return;
-    }
-    createPosition(t);
-  }
-
   const base = 'w-full px-4 py-2.5 rounded-xl border bg-white text-sm focus:outline-none transition-all cursor-pointer';
 
   const dropdown = open ? (
@@ -152,42 +115,6 @@ function PositionCombobox({ value, onChange, onSelectId, error, allPositions, is
             {p.name}
           </button>
         ))}
-              </div>
-      <div className="border-t border-crm-border p-3">
-        {adding ? (
-          <div className="flex gap-2">
-            <div className="flex flex-col gap-1 flex-1">
-              <div className="flex gap-2">
-                <input
-                  autoFocus
-                  value={newPos}
-                  onChange={(e) => { setNewPos(e.target.value); setPosError(''); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') confirmNew(); if (e.key === 'Escape') { setAdding(false); setPosError(''); } }}
-                  placeholder="Նոր պաշտոն..."
-                  onClick={(e) => e.stopPropagation()}
-                  className={`flex-1 px-3 py-2 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 ${posError ? 'border-error' : 'border-primary'}`}
-                />
-                <button type="button" onClick={confirmNew}
-                  disabled={isCreating || !newPos.trim()}
-                  className="px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-60">
-                  {isCreating ? '...' : 'Ավelacnel'}
-                </button>
-              </div>
-              {posError && <p className="text-xs text-error">{posError}</p>}
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setAdding(true); }}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed border-primary/40 text-sm text-primary font-medium hover:bg-primary/5 hover:border-primary transition-all"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            Ավելացնել նոր պաշտոն
-          </button>
-        )}
       </div>
     </div>
   ) : null;
@@ -230,8 +157,6 @@ export default function AddEmployeeModal({ onClose, onAdd }: AddEmployeeModalPro
     queryKey: ['positions'],
     queryFn:  () => positionService.getAll(),
   });
-
-  const [extraPositions, setExtraPositions] = useState<string[]>([]);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -344,8 +269,8 @@ export default function AddEmployeeModal({ onClose, onAdd }: AddEmployeeModalPro
                 onChange={setPosition}
                 onSelectId={setPositionId}
                 error={err('position')}
-                allPositions={[...(positionsData?.results ?? []), ...extraPositions.map((n, i) => ({ id: -(i+1), name: n }))]}
-                onAddPosition={(p) => setExtraPositions((prev) => [...prev, p])}
+                allPositions={positionsData?.results ?? []}
+                isLoading={positionsLoading}
               />
             </Field>
 

@@ -11,10 +11,10 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: '#4361EE',
-        'primary-hover': '#3451D1',
+        primary: '#4F46E5',
+        'primary-hover': '#4338CA',
         'primary-light': 'var(--color-primary-light)',
-        secondary: '#00B4D8',
+        secondary: '#7C3AED',
         success: '#22C55E',
         warning: '#F97316',
         error: '#EF476F',
