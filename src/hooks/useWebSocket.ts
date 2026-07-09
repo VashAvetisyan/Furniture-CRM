@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { BASE_URL } from '@/lib/api';
 import { useAuthStore } from '@/stores';
 import { useToastStore } from '@/stores/toast';
+import { showBrowserNotification } from '@/lib/browserNotifications';
 
 function buildWsUrl(token: string): string {
   const base = BASE_URL
@@ -74,37 +75,44 @@ export function useWebSocket() {
           qc.invalidateQueries({ queryKey: ['calls'] });
         }
 
-        addToast({ message: (msg.title as string) ?? 'Ծanuchum', type: 'info' });
+        {
+          const title = (msg.title as string) ?? 'Ծանուցում';
+          addToast({ message: title, type: 'info' });
+          showBrowserNotification(title, msg.message as string | undefined);
+        }
         break;
       }
 
       case 'delivery_update': {
         qc.invalidateQueries({ queryKey: ['deliveries'] });
         qc.invalidateQueries({ queryKey: ['delivery-stats'] });
-        addToast({
-          message: `🚚 ${msg.task_id ?? ''}: ${msg.status_display ?? ''}`,
-          type: 'info',
-        });
+        {
+          const text = `${msg.task_id ?? ''}: ${msg.status_display ?? ''}`;
+          addToast({ message: `🚚 ${text}`, type: 'info' });
+          showBrowserNotification('Առաքում', text);
+        }
         break;
       }
 
       case 'warehouse_alert': {
         qc.invalidateQueries({ queryKey: ['warehouse'] });
         qc.invalidateQueries({ queryKey: ['materials'] });
-        addToast({
-          message: `⚠️ ${msg.name}: ${msg.stock_quantity} ${msg.unit} — min-ից ցածр`,
-          type: 'warning',
-        });
+        {
+          const text = `${msg.name}: ${msg.stock_quantity} ${msg.unit} — min-ից ցածր`;
+          addToast({ message: `⚠️ ${text}`, type: 'warning' });
+          showBrowserNotification('Պահեստի զգուշացում', text);
+        }
         break;
       }
 
       case 'task_created': {
         qc.invalidateQueries({ queryKey: ['tasks'] });
         qc.invalidateQueries({ queryKey: ['tasks', 'my'] });
-        addToast({
-          message: `📋 ${msg.task_id ?? ''}: ${msg.client ?? msg.name ?? ''}`,
-          type: 'info',
-        });
+        {
+          const text = `${msg.task_id ?? ''}: ${msg.client ?? msg.name ?? ''}`;
+          addToast({ message: `📋 ${text}`, type: 'info' });
+          showBrowserNotification('Նոր պատվեր', text);
+        }
         break;
       }
 
@@ -117,10 +125,11 @@ export function useWebSocket() {
       case 'task_payment': {
         qc.invalidateQueries({ queryKey: ['tasks'] });
         qc.invalidateQueries({ queryKey: ['cost-summary'] });
-        addToast({
-          message: `💰 ${msg.task_id ?? ''}: ֏${msg.amount ?? ''}`,
-          type: 'info',
-        });
+        {
+          const text = `${msg.task_id ?? ''}: ֏${msg.amount ?? ''}`;
+          addToast({ message: `💰 ${text}`, type: 'info' });
+          showBrowserNotification('Վճարում', text);
+        }
         break;
       }
 
@@ -132,10 +141,11 @@ export function useWebSocket() {
 
       case 'debt_created': {
         qc.invalidateQueries({ queryKey: ['debts'] });
-        addToast({
-          message: `🔴 ${msg.title ?? ''}: ֏${msg.amount ?? ''}`,
-          type: 'warning',
-        });
+        {
+          const text = `${msg.title ?? ''}: ֏${msg.amount ?? ''}`;
+          addToast({ message: `🔴 ${text}`, type: 'warning' });
+          showBrowserNotification('Նոր պարտք', text);
+        }
         break;
       }
     }

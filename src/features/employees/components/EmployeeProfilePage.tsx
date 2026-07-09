@@ -864,6 +864,13 @@ export default function EmployeeProfilePage({ id }: { id: string }) {
     return found?.name ?? String(pos);
   }
 
+  // Select inputs need the position ID, not its display name.
+  function resolvePositionId(pos: string | number): string {
+    if (typeof pos === 'number' || !isNaN(Number(pos))) return String(pos);
+    const found = positionsData?.results.find((p) => p.name === pos);
+    return found ? String(found.id) : '';
+  }
+
   const { mutate: toggleActive, isPending: isToggling } = useMutation({
     mutationFn: (active: boolean) => employeeService.setActive(id, active),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employee', id] }),
@@ -881,7 +888,7 @@ export default function EmployeeProfilePage({ id }: { id: string }) {
   const { mutate: save, isPending, isError: isSaveError } = useMutation({
     mutationFn: () =>
       employeeService.update(id, {
-        position: Number(form.position) || (form.position as unknown as number),
+        position: Number(form.position),
         birthday: form.birthday,
         gender:   form.gender,
         level:    form.level,
@@ -898,7 +905,7 @@ export default function EmployeeProfilePage({ id }: { id: string }) {
   function startEdit() {
     if (!employee) return;
     setForm({
-      position: resolvePosition(employee.position),
+      position: resolvePositionId(employee.position),
       birthday: employee.birthday,
       gender:   employee.gender,
       level:    employee.level,
@@ -1002,46 +1009,47 @@ export default function EmployeeProfilePage({ id }: { id: string }) {
 
             {/* Main info */}
             <div className="space-y-3 mb-4">
-              <h3 className="text-sm font-semibold text-dark">Main info</h3>
+              <h3 className="text-sm font-semibold text-dark">Հիմնական տվյալներ</h3>
               {isEditing ? (
                 <>
-                  <EditableField
-                    label="Position"
+                  <EditableSelect
+                    label="Պաշտոն"
                     value={form.position}
                     onChange={(v) => setForm((f) => ({ ...f, position: v }))}
+                    options={(positionsData?.results ?? []).map((p) => ({ value: String(p.id), label: p.name }))}
                   />
                   <EditableField
-                    label="Birthday Date"
+                    label="Ծննդյան ամսաթիվ"
                     value={form.birthday}
                     type="date"
                     onChange={(v) => setForm((f) => ({ ...f, birthday: v }))}
                   />
                   <EditableSelect
-                    label="Gender"
+                    label="Սեռ"
                     value={form.gender}
                     onChange={(v) => setForm((f) => ({ ...f, gender: v as 'Male' | 'Female' }))}
                     options={[
-                      { value: 'Male',   label: 'Male' },
-                      { value: 'Female', label: 'Female' },
+                      { value: 'Male',   label: 'Արական' },
+                      { value: 'Female', label: 'Իգական' },
                     ]}
                   />
                   <EditableSelect
-                    label="Level"
+                    label="Մակարդակ"
                     value={form.level}
                     onChange={(v) => setForm((f) => ({ ...f, level: v as Level }))}
                     options={[
-                      { value: 'Junior', label: 'Junior' },
-                      { value: 'Middle', label: 'Middle' },
-                      { value: 'Senior', label: 'Senior' },
+                      { value: 'Junior', label: 'Ջունիոր' },
+                      { value: 'Middle', label: 'Միջին' },
+                      { value: 'Senior', label: 'Սենիոր' },
                     ]}
                   />
                 </>
               ) : (
                 <>
-                  <InfoField label="Position"      value={resolvePosition(employee.position)} />
-                  <InfoField label="Birthday Date" value={employee.birthday} icon={<CalendarIcon />} />
-                  <InfoField label="Full Age"      value={String(employee.fullAge)} />
-                  <InfoField label="Gender"        value={employee.gender} />
+                  <InfoField label="Պաշտոն"           value={resolvePosition(employee.position)} />
+                  <InfoField label="Ծննդյան ամսաթիվ"  value={employee.birthday} icon={<CalendarIcon />} />
+                  <InfoField label="Տարիք"             value={String(employee.fullAge)} />
+                  <InfoField label="Սեռ"               value={employee.gender} />
                 </>
               )}
             </div>
@@ -1050,31 +1058,31 @@ export default function EmployeeProfilePage({ id }: { id: string }) {
 
             {/* Contact info */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-dark">Contact Info</h3>
+              <h3 className="text-sm font-semibold text-dark">Կոնտակտային տվյալներ</h3>
               {isEditing ? (
                 <>
                   <EditableField
-                    label="Email"
+                    label="Էլ. փոստ"
                     value={form.email}
                     onChange={(v) => setForm((f) => ({ ...f, email: v }))}
                   />
                   <EditableField
-                    label="Mobile Number"
+                    label="Հեռախոսահամար"
                     value={form.phone}
                     onChange={(v) => setForm((f) => ({ ...f, phone: v }))}
                   />
                 </>
               ) : (
                 <>
-                  <InfoField label="Email"         value={employee.email} />
-                  <InfoField label="Mobile Number" value={employee.phone ?? '—'} />
+                  <InfoField label="Էլ. փոստ"         value={employee.email} />
+                  <InfoField label="Հեռախոսահամար"    value={employee.phone ?? '—'} />
                 </>
               )}
             </div>
 
             {isSaveError && (
               <p className="mt-3 text-xs text-red-500 text-center">
-                Failed to save. Try again.
+                Չհաջողվեց պահպանել. կրկին փորձեք.
               </p>
             )}
 
@@ -1165,7 +1173,7 @@ export default function EmployeeProfilePage({ id }: { id: string }) {
             <div className="flex flex-col gap-3">
               {filteredTasks.length === 0 ? (
                 <div className="flex items-center justify-center h-48 bg-white rounded-2xl border border-crm-border text-text-muted text-sm shadow-sm">
-                  Պատверներ сksats che
+                  Պատվեր չկան
                 </div>
               ) : (
                 filteredTasks.map((task) => <TaskCard key={task.taskId ?? task.id} task={task} />)

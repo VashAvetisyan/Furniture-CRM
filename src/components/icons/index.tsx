@@ -377,8 +377,7 @@ export function PendingPaymentsIcon({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="9"/>
-      <path d="M12 6v6l4 2"/>
-      <path d="M9 17.5h3.5M12 17.5v-2.5"/>
+      <path d="M12 7v5l3.5 2"/>
     </svg>
   );
 }

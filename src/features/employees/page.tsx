@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { SkEmployeeCard, SkEmployeeRow } from '@/components/ui/Skeleton';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { EmployeeListItem, Level } from './types';
 import AddEmployeeModal from './components/AddEmployeeModal';
@@ -154,6 +155,7 @@ function EmployeeListRow({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -164,8 +166,10 @@ function EmployeeListRow({
   }, []);
 
   return (
-    <Link href={`/employees/${employee.id}`}>
-      <div className="bg-white rounded-2xl border border-crm-border hover:shadow-md transition-shadow cursor-pointer">
+    <div
+      onClick={() => router.push(`/employees/${employee.id}`)}
+      className="bg-white rounded-2xl border border-crm-border hover:shadow-md transition-shadow cursor-pointer"
+    >
 
         {/* Mobile card (< md) */}
         <div className="md:hidden px-4 py-3.5 flex items-center gap-3">
@@ -179,18 +183,18 @@ function EmployeeListRow({
               <span className={`w-2 h-2 rounded-full flex-shrink-0 ${employee.isActive === false ? 'bg-error' : 'bg-success'}`} />
             </div>
           </div>
-          <div className="relative flex-shrink-0" ref={ref}>
-            <button className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-text-muted hover:text-dark" onClick={(e) => { e.preventDefault(); setOpen((o) => !o); }}>
+          <div className="relative flex-shrink-0" ref={ref} onClick={(e) => e.stopPropagation()}>
+            <button className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-text-muted hover:text-dark" onClick={() => setOpen((o) => !o)}>
               <DotsIcon />
             </button>
             {open && (
               <div className="absolute right-0 top-8 z-20 bg-white border border-crm-border rounded-xl shadow-lg py-1 w-max">
-                <Link href={`/employees/${employee.id}`} className="flex items-center gap-2 px-3 py-2 text-sm text-dark hover:bg-gray-50 transition-colors whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                <Link href={`/employees/${employee.id}`} className="flex items-center gap-2 px-3 py-2 text-sm text-dark hover:bg-gray-50 transition-colors whitespace-nowrap">
                   <svg className="w-4 h-4 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                   Տեսնել Պրոֆիլն
                 </Link>
                 {isAdmin && (
-                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap" onClick={(e) => { e.preventDefault(); setOpen(false); onDeleteClick(employee); }}>
+                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap" onClick={() => { setOpen(false); onDeleteClick(employee); }}>
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                       Ջնջել
                     </button>
@@ -231,18 +235,18 @@ function EmployeeListRow({
           <div className="w-8 flex-shrink-0 flex items-center justify-center">
             <span className={`w-3 h-3 rounded-full ${employee.isActive === false ? 'bg-error' : 'bg-success'}`} />
           </div>
-          <div className="relative flex-shrink-0" ref={ref}>
-            <button className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-text-muted hover:text-dark" onClick={(e) => { e.preventDefault(); setOpen((o) => !o); }}>
+          <div className="relative flex-shrink-0" ref={ref} onClick={(e) => e.stopPropagation()}>
+            <button className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-text-muted hover:text-dark" onClick={() => setOpen((o) => !o)}>
               <DotsIcon />
             </button>
             {open && (
               <div className="absolute right-0 top-8 z-20 bg-white border border-crm-border rounded-xl shadow-lg py-1 w-max">
-                <Link href={`/employees/${employee.id}`} className="flex items-center gap-2 px-3 py-2 text-sm text-dark hover:bg-gray-50 transition-colors whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                <Link href={`/employees/${employee.id}`} className="flex items-center gap-2 px-3 py-2 text-sm text-dark hover:bg-gray-50 transition-colors whitespace-nowrap">
                   <svg className="w-4 h-4 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                   Տեսնել Պրոֆիլն
                 </Link>
                 {isAdmin && (
-                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap" onClick={(e) => { e.preventDefault(); setOpen(false); onDeleteClick(employee); }}>
+                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap" onClick={() => { setOpen(false); onDeleteClick(employee); }}>
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
                       Ջնջել
                     </button>
@@ -252,8 +256,7 @@ function EmployeeListRow({
           </div>
         </div>
 
-      </div>
-    </Link>
+    </div>
   );
 }
 

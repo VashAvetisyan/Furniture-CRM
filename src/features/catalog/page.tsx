@@ -191,7 +191,7 @@ function ProductModal({
               <input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Անկյունային..." className={INPUT} />
             </div>
             <div>
-              <label className="text-[11px] font-bold text-text-muted uppercase tracking-wide mb-1.5 block">SKU</label>
+              <label className="text-[11px] font-bold text-text-muted uppercase tracking-wide mb-1.5 block">Կոդ</label>
               <input value={form.sku} onChange={(e) => set('sku', e.target.value)} placeholder="DIV-001" className={INPUT} />
             </div>
           </div>

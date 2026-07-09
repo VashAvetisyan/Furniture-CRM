@@ -298,6 +298,18 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companySettings?.advance_payment_percent]);
+
+  // Single source of truth: whenever price or percent changes, recompute the advance
+  // amount. Avoids stale amounts when the percent gets filled asynchronously (e.g.
+  // from company settings) after the price was already typed.
+  useEffect(() => {
+    const pct   = parseFloat(advancePercent);
+    const total = parseFloat(price);
+    if (advancePercent !== '' && pct >= 0 && total > 0) {
+      setAdvance(String(Math.round(total * pct / 100)));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [price, advancePercent]);
   const [advanceDate, setAdvanceDate]      = useState(() => new Date().toISOString().slice(0, 16));
   const [advanceMethod, setAdvanceMethod]  = useState<'card' | 'cash' | ''>('');
   const [finalPayment, setFinal]           = useState('');
@@ -364,7 +376,7 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
   const isBusy = uploading;
 
   async function handleSave() {
-    if (!client.trim()) { setError('Պատвiritatuyi anuny partadiр'); return; }
+    if (!client.trim()) { setError('Պատվիրատուի անուն պարտադիրա'); return; }
     const firstRow = assigneeRows[0];
 
     // Capture files BEFORE any async work — avoids stale closure
@@ -702,15 +714,7 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
               <Field label="Ընդհանուր արժեք">
                 <input
                   value={price}
-                  onChange={(e) => {
-                    setPrice(e.target.value);
-                    // recalculate advance if percent is set
-                    const pct = parseFloat(advancePercent);
-                    const total = parseFloat(e.target.value);
-                    if (pct > 0 && total > 0) {
-                      setAdvance(String(Math.round(total * pct / 100)));
-                    }
-                  }}
+                  onChange={(e) => setPrice(e.target.value)}
                   placeholder="0 ֏"
                   className={inputCls()}
                 />
@@ -720,14 +724,14 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
             {/* Advance payment */}
             <div className="mt-3 p-3 rounded-xl border border-crm-border bg-gray-50">
               <p className="text-[11px] font-bold text-text-muted uppercase tracking-widest mb-2.5">Կանխավճար</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="flex flex-col gap-3">
                 <Field label="Գումար">
                   <div className="flex gap-1.5 items-center">
                     <input
                       value={advancePayment}
                       onChange={(e) => { setAdvance(e.target.value); setAdvancePct(''); }}
                       placeholder="0 ֏"
-                      className={inputCls()}
+                      className={`${inputCls()} flex-1 min-w-0`}
                     />
                     <div className="relative flex-shrink-0 w-20">
                       <input
@@ -735,15 +739,7 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
                         min="0"
                         max="100"
                         value={advancePercent}
-                        onChange={(e) => {
-                          const pct = e.target.value;
-                          setAdvancePct(pct);
-                          const total = parseFloat(price);
-                          const p     = parseFloat(pct);
-                          if (p >= 0 && total > 0) {
-                            setAdvance(String(Math.round(total * p / 100)));
-                          }
-                        }}
+                        onChange={(e) => setAdvancePct(e.target.value)}
                         placeholder="%"
                         className={`${inputCls()} pr-5`}
                       />
@@ -751,16 +747,18 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
                     </div>
                   </div>
                 </Field>
-                <Field label="Ամսաթիվ">
-                  <input type="datetime-local" value={advanceDate} onChange={(e) => setAdvanceDate(e.target.value)} className={inputCls()} />
-                </Field>
-                <Field label="Վճարման մեթոդ">
-                  <select value={advanceMethod} onChange={(e) => setAdvanceMethod(e.target.value as 'card' | 'cash' | '')} className={inputCls()}>
-                    <option value="">—</option>
-                    <option value="card">Qartov</option>
-                    <option value="cash">Kanxik</option>
-                  </select>
-                </Field>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="Ամսաթիվ">
+                    <input type="datetime-local" value={advanceDate} onChange={(e) => setAdvanceDate(e.target.value)} className={inputCls()} />
+                  </Field>
+                  <Field label="Վճարման մեթոդ">
+                    <select value={advanceMethod} onChange={(e) => setAdvanceMethod(e.target.value as 'card' | 'cash' | '')} className={inputCls()}>
+                      <option value="">—</option>
+                      <option value="card">Քարտով</option>
+                      <option value="cash">Կանխիկ</option>
+                    </select>
+                  </Field>
+                </div>
               </div>
             </div>
 
@@ -860,15 +858,15 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
                   debt <= 0 ? 'border-success/40 bg-success/5' : 'border-error/30 bg-error/5'
                 }`}>
                   <div className="flex flex-col gap-1 text-xs text-text-muted">
-                    <span>{total.toLocaleString('hy-AM')} ֏ ընդhanuр</span>
-                    <span className="text-success">− {paid.toLocaleString('hy-AM')} ֏ ВchарВАD</span>
+                    <span>{total.toLocaleString('hy-AM')} ֏ Ընդհանուր</span>
+                    <span className="text-success">− {paid.toLocaleString('hy-AM')} ֏ Վճարված </span>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-0.5">Պartvк</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-0.5">Պարտք</p>
                     <p className={`text-xl font-bold ${debt <= 0 ? 'text-success' : 'text-error'}`}>
                       {debt <= 0 ? '0' : debt.toLocaleString('hy-AM')} ֏
                     </p>
-                    {debt <= 0 && <p className="text-[10px] text-success font-semibold">Ամբողջοvin VcharvAD ✓</p>}
+                    {debt <= 0 && <p className="text-[10px] text-success font-semibold">Ամբողջովին Վճարված ✓</p>}
                   </div>
                 </div>
               );

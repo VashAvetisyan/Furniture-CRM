@@ -220,10 +220,7 @@ function AccessPanel({ position }: { position: PositionDTO }) {
                     dirty ? 'border-primary/40 bg-primary/5' : 'border-crm-border hover:border-gray-300'
                   }`}
                 >
-                  <div>
-                    <p className="text-sm font-medium text-dark">{label}</p>
-                    <p className="text-xs text-text-muted">/{slug}</p>
-                  </div>
+                  <p className="text-sm font-medium text-dark">{label}</p>
                   <Toggle checked={allowed} onChange={(v) => toggle(slug, v)} />
                 </div>
               );

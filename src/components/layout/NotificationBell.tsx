@@ -11,6 +11,7 @@ import {
   type NotificationListResponse,
   type TelegramMeLinked,
 } from '@/services/notification.service';
+import { getNotificationPermission, requestNotificationPermission } from '@/lib/browserNotifications';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,46 @@ function eventIcon(type: NotificationDTO['event_type']) {
     case 'call_reminder':  return '📞';
     default:               return '🔔';
   }
+}
+
+// ── Browser notifications section ─────────────────────────────────────────────
+
+function BrowserNotificationSection() {
+  const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default');
+
+  useEffect(() => { setPermission(getNotificationPermission()); }, []);
+
+  async function enable() {
+    const result = await requestNotificationPermission();
+    setPermission(result);
+  }
+
+  if (permission === 'unsupported') return null;
+
+  return (
+    <div className="border-t border-gray-100 px-4 py-3">
+      <p className="text-[11px] font-bold text-text-muted uppercase tracking-widest mb-2">Դիտարկչի ծանուցումներ</p>
+
+      {permission === 'granted' ? (
+        <div className="flex items-center gap-2">
+          <span className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs">✓</span>
+          <span className="text-sm text-dark font-medium">Միացված են</span>
+        </div>
+      ) : permission === 'denied' ? (
+        <p className="text-xs text-text-muted">
+          Ծանուցումներն արգելափակված են դիտարկչի կարգավորումներում։ Միացնելու համար փոխեք թույլտվությունը դիտարկչի կայքի կարգավորումներից։
+        </p>
+      ) : (
+        <button
+          onClick={enable}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-crm-border text-sm text-dark hover:bg-gray-50 transition-colors"
+        >
+          <BellIcon className="w-4 h-4 text-primary" />
+          Միացնել դիտարկչի ծանուցումները
+        </button>
+      )}
+    </div>
+  );
 }
 
 // ── Telegram section ──────────────────────────────────────────────────────────
@@ -254,6 +295,9 @@ export default function NotificationBell() {
               ))
             )}
           </div>
+
+          {/* Browser notifications */}
+          <BrowserNotificationSection />
 
           {/* Telegram */}
           <TelegramSection />

@@ -143,7 +143,7 @@ function TransferModal({ onClose, editing }: { onClose: () => void; editing?: Tr
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[400px] mx-4 flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-crm-border">
-          <h2 className="text-base font-bold text-dark">{editing ? 'Փոփoxel transfer' : 'Նov transfer'}</h2>
+          <h2 className="text-base font-bold text-dark">{editing ? 'Փոխել' : 'Նոր Տրանսֆեր'}</h2>
           <button onClick={onClose} className="text-text-muted hover:text-dark">
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -173,7 +173,7 @@ function TransferModal({ onClose, editing }: { onClose: () => void; editing?: Tr
 
           {/* Amount */}
           <div>
-            <label className="text-xs font-semibold text-text-muted mb-1.5 block">Գумар (֏)</label>
+            <label className="text-xs font-semibold text-text-muted mb-1.5 block">Գումար (֏)</label>
             <input
               type="number"
               value={amount}
@@ -185,7 +185,7 @@ function TransferModal({ onClose, editing }: { onClose: () => void; editing?: Tr
 
           {/* Date */}
           <div>
-            <label className="text-xs font-semibold text-text-muted mb-1.5 block">Ամсаθив</label>
+            <label className="text-xs font-semibold text-text-muted mb-1.5 block">Ամսաթիվ</label>
             <input
               type="datetime-local"
               value={date}
@@ -196,7 +196,7 @@ function TransferModal({ onClose, editing }: { onClose: () => void; editing?: Tr
 
           {/* Note */}
           <div>
-            <label className="text-xs font-semibold text-text-muted mb-1.5 block">Ծanотum</label>
+            <label className="text-xs font-semibold text-text-muted mb-1.5 block">Նշումներ</label>
             <input
               type="text"
               value={note}
@@ -535,7 +535,7 @@ export default function FinancePage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert('Ֆայлը բեռնել չհաջողվեց');
+      alert('Ֆայլը բեռնել չհաջողվեց');
     } finally {
       setIsExporting(false);
     }
@@ -562,7 +562,7 @@ export default function FinancePage() {
               onClick={() => setMainTab('transfers')}
               className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${mainTab === 'transfers' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
             >
-              ⇄ Transfer
+              ⇄ Տրանսֆերներ
             </button>
           </div>
 
@@ -822,7 +822,7 @@ export default function FinancePage() {
                   <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
                 </svg>
               </div>
-              <p className="text-sm text-text-muted">Transfer chkan</p>
+              <p className="text-sm text-text-muted">Տրանսֆերներ չկան</p>
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-crm-border overflow-hidden">

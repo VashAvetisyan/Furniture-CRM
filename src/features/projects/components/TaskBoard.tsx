@@ -179,6 +179,7 @@ export default function TaskBoard({ tasks, projectName }: TaskBoardProps) {
   const [newColLabel, setNewColLabel]       = useState('');
   const [deletingCol, setDeletingCol]       = useState<BoardColumn | null>(null);
   const [openTask, setOpenTask]             = useState<Task | null>(null);
+  const [pendingLastMove, setPendingLastMove] = useState<{ taskId: string; col: BoardColumn } | null>(null);
   const queryClient = useQueryClient();
   const inputRef    = useRef<HTMLInputElement>(null);
   const role        = useAuthStore((s) => s.role);
@@ -241,6 +242,63 @@ export default function TaskBoard({ tasks, projectName }: TaskBoardProps) {
     },
   });
 
+  const { mutate: autoUnmarkDone } = useMutation({
+    mutationFn: async ({ taskId, userId }: { taskId: string; userId: number }) => {
+      await taskService.markDone(taskId, userId, false);
+      const secondColId = orderedColumns[1]?.backendId;
+      if (secondColId != null) {
+        await taskService.update(taskId, { statusId: Number(secondColId) });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'my'] });
+    },
+  });
+
+  const { mutate: autoUnmarkStarted } = useMutation({
+    mutationFn: async ({ taskId, userId }: { taskId: string; userId: number }) => {
+      await taskService.markStarted(taskId, userId, false);
+      const firstColId = orderedColumns[0]?.backendId;
+      if (firstColId != null) {
+        await taskService.update(taskId, { statusId: Number(firstColId) });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'my'] });
+    },
+  });
+
+  // Director drags a task off the first column: every assignee must be marked
+  // started too, otherwise their own board would still show it as not-started.
+  const { mutate: markAllStarted } = useMutation({
+    mutationFn: async (task: Task) => {
+      const targets = (task.assignees ?? []).filter((a) => !a.isStarted);
+      await Promise.all(targets.map((a) => taskService.markStarted(task.id, a.userId, true)));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'my'] });
+    },
+  });
+
+  // Director drags a task to the last column: every assignee must be marked
+  // started + done, even if some hadn't finished (or started) their part yet.
+  const { mutate: markAllDone, isPending: markingAllDone } = useMutation({
+    mutationFn: async (task: Task) => {
+      const assignees = task.assignees ?? [];
+      await Promise.all(assignees.map(async (a) => {
+        if (!a.isStarted) await taskService.markStarted(task.id, a.userId, true);
+        if (!a.isDone)    await taskService.markDone(task.id, a.userId, true);
+      }));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'my'] });
+    },
+  });
+
   const { mutate: createStatus, isPending: creatingStatus } = useMutation({
     mutationFn: (name: string) => taskStatusService.create({ name }),
     onSuccess: () => {
@@ -267,28 +325,67 @@ export default function TaskBoard({ tasks, projectName }: TaskBoardProps) {
     const task = taskList.find((t) => t.id === taskId);
 
     if (isEmployee && myUserId && task) {
-      // Employee: never PATCH task.status — only call mark-started / mark-done.
-      // The column placement is derived from isStarted/isDone, not task.status.
+      // Employee: never directly PATCH an arbitrary task.status — only call
+      // mark-started / mark-done, which derive the resulting status themselves.
       const currentDisplay = computeDisplayStatus(task, true, myUserId, orderedColumns);
       const oldIdx = orderedColumns.findIndex((c) => c.id === currentDisplay);
       const newIdx = orderedColumns.findIndex((c) => c.id === col.id);
-      if (newIdx <= oldIdx) return; // no backward movement triggers
+      if (newIdx === oldIdx) return;
 
       const assignee = task.assignees?.find((a) => a.userId === myUserId);
       if (!assignee) return;
-      if (!assignee.isStarted) {
-        autoMarkStarted({ taskId, userId: myUserId });
-      } else if (assignee.isStarted && !assignee.isDone && newIdx === orderedColumns.length - 1) {
-        autoMarkDone({ taskId, userId: myUserId, task });
+
+      if (newIdx > oldIdx) {
+        if (!assignee.isStarted) {
+          autoMarkStarted({ taskId, userId: myUserId });
+        } else if (!assignee.isDone && newIdx === orderedColumns.length - 1) {
+          autoMarkDone({ taskId, userId: myUserId, task });
+        }
+      } else {
+        if (assignee.isDone) {
+          autoUnmarkDone({ taskId, userId: myUserId });
+        } else if (assignee.isStarted) {
+          autoUnmarkStarted({ taskId, userId: myUserId });
+        }
       }
-    } else {
-      // Director: PATCH the actual task status
+    } else if (task) {
+      // Director: PATCH the actual task status. Keep each assignee's own
+      // isStarted/isDone in sync so their personal board matches this move.
+      const newIdx  = orderedColumns.findIndex((c) => c.id === col.id);
+      const isLast  = newIdx === orderedColumns.length - 1;
+      const isFirst = newIdx === 0;
+
+      if (isLast) {
+        // Marking everyone done is a big, hard-to-undo action — confirm first.
+        setPendingLastMove({ taskId, col });
+        return;
+      }
+
       setTaskList((prev) =>
         prev.map((t) => t.id === taskId ? { ...t, status: col.id as Task['status'] } : t)
       );
       const numericStatus = Number(col.backendId);
       updateStatus({ id: taskId, statusId: isNaN(numericStatus) ? undefined : numericStatus });
+
+      if (!isFirst && task.assignees?.some((a) => !a.isStarted)) {
+        markAllStarted(task);
+      }
     }
+  }
+
+  function confirmMoveToLast() {
+    if (!pendingLastMove) return;
+    const { taskId, col } = pendingLastMove;
+    const task = taskList.find((t) => t.id === taskId);
+
+    setTaskList((prev) =>
+      prev.map((t) => t.id === taskId ? { ...t, status: col.id as Task['status'] } : t)
+    );
+    const numericStatus = Number(col.backendId);
+    updateStatus({ id: taskId, statusId: isNaN(numericStatus) ? undefined : numericStatus });
+
+    if (task) markAllDone(task);
+    setPendingLastMove(null);
   }
 
   function onDragEnd(result: DropResult) {
@@ -338,6 +435,40 @@ export default function TaskBoard({ tasks, projectName }: TaskBoardProps) {
           </div>
         </div>
       )}
+
+      {pendingLastMove && (() => {
+        const task = taskList.find((t) => t.id === pendingLastMove.taskId);
+        const unfinished = task?.assignees?.filter((a) => !a.isDone).length ?? 0;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-xl p-6 w-96 flex flex-col gap-4">
+              <div className="flex flex-col gap-1">
+                <p className="text-base font-semibold text-dark">Տեղափոխե՞լ «{pendingLastMove.col.label}» փուլ</p>
+                <p className="text-sm text-text-muted">
+                  {unfinished > 0
+                    ? `${unfinished} աշխատող դեռ չի ավարտել իր մասը։ Հաստատելով՝ բոլոր աշխատողները ավտոմատ կնշվեն որպես ավարտած։`
+                    : 'Բոլոր աշխատողներն արդեն ավարտել են։'}
+                </p>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <button
+                  onClick={() => setPendingLastMove(null)}
+                  className="px-4 py-2 text-sm font-medium rounded-lg border border-crm-border text-dark hover:bg-light transition-colors"
+                >
+                  Չեղարկել
+                </button>
+                <button
+                  onClick={confirmMoveToLast}
+                  disabled={markingAllDone}
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary-hover disabled:opacity-60 transition-colors"
+                >
+                  {markingAllDone ? 'Հաստատվում է...' : 'Հաստատել'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex-1 min-h-0 w-full overflow-x-auto overflow-y-auto px-3 md:px-6 pt-4 pb-4">

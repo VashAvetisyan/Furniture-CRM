@@ -575,7 +575,7 @@ function CustomerTasksModal({ client, onClose, onBack }: {
         </div>
 
         <div className="px-6 py-3 border-t border-crm-border flex-shrink-0 flex justify-between items-center">
-          <p className="text-xs text-text-muted">{tasks.length} Ենդանուր Պատվերներ</p>
+          <p className="text-xs text-text-muted">{tasks.length} Ընդհանուր Պատվերներ</p>
           <button onClick={onClose} className="px-4 py-2 text-sm font-semibold rounded-xl border border-crm-border text-text-muted hover:bg-gray-50 transition-colors">
             Փակել
           </button>

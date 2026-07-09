@@ -942,7 +942,7 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                     <div className={`rounded-xl border-2 p-4 flex items-center justify-between gap-4 ${computedDebt <= 0 ? 'border-success/40 bg-success/5' : 'border-error/30 bg-error/5'}`}>
                       <div className="flex flex-col gap-1 text-xs text-text-muted">
                         <span>{total.toLocaleString()}&#1423; Ընդհանուր արժեք</span>
-                        <span className="text-success">&#x2212; {paid.toLocaleString()}&#1423; Պարտք</span>
+                        <span className="text-success">&#x2212; {paid.toLocaleString()}&#1423; Վճարված</span>
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-0.5">Մնացորդ</p>
