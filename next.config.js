@@ -1,12 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: false,
+  swcMinify: true,
   output: 'standalone',
-  experimental: {
-    cpus: 1,
-    workerThreads: false,
-  },
   images: {
     remotePatterns: [],
   },
