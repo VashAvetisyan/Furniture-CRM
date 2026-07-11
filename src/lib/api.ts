@@ -32,7 +32,7 @@ function redirectToLogin() {
   }
 }
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   const refresh = getRefreshToken();
   if (!refresh) return null;
   try {
@@ -42,8 +42,12 @@ async function refreshAccessToken(): Promise<string | null> {
       body:    JSON.stringify({ refresh }),
     });
     if (!res.ok) return null;
-    const data = await res.json() as { access: string };
+    const data = await res.json() as { access: string; refresh?: string };
     localStorage.setItem('token', data.access);
+    // Some SIMPLE_JWT configs rotate the refresh token on every use (and
+    // blacklist the old one) — if the response includes a new one, we must
+    // store it or the *next* refresh will fail with an already-used token.
+    if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
     return data.access;
   } catch {
     return null;

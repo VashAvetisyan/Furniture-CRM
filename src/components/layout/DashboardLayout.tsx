@@ -8,6 +8,7 @@ import ToastStack from '@/components/ui/ToastStack';
 import TopProgressBar from '@/components/ui/TopProgressBar';
 import { useAuthStore, useUIStore } from '@/stores';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { refreshAccessToken } from '@/lib/api';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router          = useRouter();
@@ -25,6 +26,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (hasHydrated && !isAuthenticated) router.replace('/login');
   }, [hasHydrated, isAuthenticated, router]);
+
+  // Proactively renew the access token as soon as the app boots into an
+  // authenticated shell, instead of waiting for the first page's data fetch to
+  // 401 and refresh reactively — makes returning to the app after the access
+  // token (but not the refresh token) has expired invisible to the user.
+  useEffect(() => {
+    if (hasHydrated && isAuthenticated) void refreshAccessToken();
+  }, [hasHydrated, isAuthenticated]);
 
   useEffect(() => {
     setSidebarOpen(false);
