@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { taskService, taskStatusService } from '@/services/task.service';
+import { taskService, taskStatusService, type TaskDTO } from '@/services/task.service';
 import Avatar from '@/components/ui/Avatar';
 import { ArrowUpIcon, ArrowDownIcon } from '@/components/icons';
 import TaskDetailModal from './TaskDetailModal';
 import { useAuthStore } from '@/stores';
+import { SkBoardColumn } from '@/components/ui/Skeleton';
 import type { Task, TaskPriority } from '../types';
 
 interface BoardColumn {
@@ -29,9 +29,19 @@ const priorityConfig: Record<TaskPriority, { bg: string; text: string; Icon: typ
   Low:    { bg: 'bg-success/10', text: 'text-success', Icon: ArrowDownIcon },
 };
 
+function mapDtoToTask(t: TaskDTO): Task {
+  return {
+    ...t,
+    id:      String(t.id),
+    taskId:  t.taskId ?? String(t.id),
+    section: (t.section ?? 'active') as Task['section'],
+    status:  (t.statusId !== undefined ? String(t.statusId) : t.status) as Task['status'],
+  } as Task;
+}
+
 // Compute which column this task belongs to for the current viewer.
-// Director: firstCol until anyone starts, secondCol when anyone starts, lastCol only when ALL done.
-// Employee: based on their own isStarted/isDone.
+// Director: actual stored statusId (matches the backend `?status=` filter exactly).
+// Employee: based on their own isStarted/isDone (virtual — can't be filtered server-side).
 function computeDisplayStatus(
   task: Task,
   isEmployee: boolean,
@@ -54,7 +64,6 @@ function computeDisplayStatus(
     return firstColId;
   }
 
-  // Director / admin view: use actual stored statusId for column placement
   return String(task.status);
 }
 
@@ -74,7 +83,6 @@ function TaskCard({
   const mainAssigneeName     = assignees?.[0]?.name     || task.assigneeName     || '—';
   const mainAssigneeColor    = assignees?.[0]?.color    || task.assigneeColor;
   const mainAssigneeInitials = assignees?.[0]?.initials || task.assigneeInitials;
-  const extraCount           = assignees ? assignees.length - 1 : 0;
 
   const displayStatus = computeDisplayStatus(task, isEmployee, myUserId, columns);
   const colIdx  = columns.findIndex((c) => c.id === displayStatus);
@@ -146,6 +154,8 @@ function TaskCard({
   );
 }
 
+// ── Employee column — client-side slice of the (small) eagerly-fetched "my tasks" set ──
+
 function TaskColumn({
   tasks, columns, onOpen, onMove, isEmployee, myUserId,
 }: {
@@ -157,10 +167,109 @@ function TaskColumn({
   myUserId:   number | null;
 }) {
   return (
-    <div className="flex flex-col flex-1 rounded-xl p-1">
-      <div className="space-y-3">
+    <div className="flex flex-col flex-1 min-h-0 rounded-xl p-1">
+      <div className="space-y-3 overflow-y-auto flex-1 min-h-0">
         {tasks.map((task) => (
           <TaskCard key={task.id} task={task} columns={columns} onOpen={onOpen} onMove={onMove} isEmployee={isEmployee} myUserId={myUserId} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Director column — fetches only its own status + page from the backend ──────
+
+function CardListSkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="bg-white rounded-xl p-3 shadow-sm border border-crm-border space-y-2">
+          <div className="h-4 w-4/5 bg-gray-200 animate-pulse rounded-lg" />
+          <div className="h-3 w-3/5 bg-gray-200 animate-pulse rounded-lg" />
+          <div className="flex gap-2 mt-2">
+            <div className="w-6 h-6 rounded-full bg-gray-200 animate-pulse" />
+            <div className="h-5 w-16 bg-gray-200 animate-pulse rounded-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export interface LazyBoardFilters {
+  assigneeId?:    string | number;
+  clientId?:      number;
+  search?:        string;
+  deadlineFrom?:  string;
+  deadlineTo?:    string;
+  overdueOnly?:   boolean;
+  // Not directly backend-filterable on `/tasks/` yet — applied client-side to
+  // whatever page comes back, so counts/pagination may be approximate when used.
+  roleEmployeeIds?: Set<string> | null;
+  acceptanceFrom?:  string;
+  acceptanceTo?:    string;
+}
+
+function passesClientOnlyFilters(task: Task, filters: LazyBoardFilters): boolean {
+  if (filters.roleEmployeeIds) {
+    if (filters.roleEmployeeIds.size === 0) return false;
+    const matches = filters.roleEmployeeIds.has(String(task.assigneeId)) ||
+      (task.assignees?.some((a) => filters.roleEmployeeIds!.has(String(a.userId))) ?? false);
+    if (!matches) return false;
+  }
+  if (filters.acceptanceFrom || filters.acceptanceTo) {
+    if (!task.acceptanceDate) return false;
+    const d = new Date(task.acceptanceDate);
+    if (filters.acceptanceFrom && d < new Date(filters.acceptanceFrom)) return false;
+    if (filters.acceptanceTo && d > new Date(`${filters.acceptanceTo}T23:59:59`)) return false;
+  }
+  return true;
+}
+
+function LazyTaskColumn({
+  col, page, pageSize, filters, columns, onOpen, onMove, onLoaded,
+}: {
+  col:      BoardColumn;
+  page:     number;
+  pageSize: number;
+  filters:  LazyBoardFilters;
+  columns:  BoardColumn[];
+  onOpen:   (t: Task) => void;
+  onMove:   (taskId: string, col: BoardColumn) => void;
+  onLoaded: (colId: string, count: number, tasks: Task[]) => void;
+}) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['tasks', 'board', col.backendId, page, pageSize, filters],
+    queryFn: () => taskService.getBoardPage({
+      statusId:   col.backendId,
+      page,
+      pageSize,
+      assignee:   filters.assigneeId,
+      clientLink: filters.clientId,
+      search:     filters.search,
+      dateFrom:   filters.deadlineFrom,
+      dateTo:     filters.deadlineTo,
+      overdue:    filters.overdueOnly,
+    }),
+    placeholderData: (prev) => prev,
+  });
+
+  const tasks = (data?.results ?? []).map(mapDtoToTask).filter((t) => passesClientOnlyFilters(t, filters));
+
+  useEffect(() => {
+    if (data) onLoaded(col.id, data.count, tasks);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
+  if (isLoading && !data) {
+    return <CardListSkeleton />;
+  }
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0 rounded-xl p-1">
+      <div className="space-y-3 overflow-y-auto flex-1 min-h-0">
+        {tasks.map((task) => (
+          <TaskCard key={task.id} task={task} columns={columns} onOpen={onOpen} onMove={onMove} isEmployee={false} myUserId={null} />
         ))}
       </div>
     </div>
@@ -170,39 +279,58 @@ function TaskColumn({
 interface TaskBoardProps {
   tasks: Task[];
   projectName?: string;
+  isLoading?: boolean;
+  filters?: LazyBoardFilters;
 }
 
-export default function TaskBoard({ tasks, projectName }: TaskBoardProps) {
-  const [taskList, setTaskList]             = useState(tasks);
-  const [orderedColumns, setOrderedColumns] = useState<BoardColumn[]>(FALLBACK_COLUMNS);
-  const [addingCol, setAddingCol]           = useState(false);
-  const [newColLabel, setNewColLabel]       = useState('');
-  const [deletingCol, setDeletingCol]       = useState<BoardColumn | null>(null);
+export default function TaskBoard({ tasks, projectName, isLoading, filters = {} }: TaskBoardProps) {
   const [openTask, setOpenTask]             = useState<Task | null>(null);
   const [pendingLastMove, setPendingLastMove] = useState<{ taskId: string; col: BoardColumn } | null>(null);
+  const [page, setPage]         = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [loadedTasks, setLoadedTasks]   = useState<Record<string, Task>>({});
+  const [columnCounts, setColumnCounts] = useState<Record<string, number>>({});
   const queryClient = useQueryClient();
-  const inputRef    = useRef<HTMLInputElement>(null);
   const role        = useAuthStore((s) => s.role);
   const user        = useAuthStore((s) => s.user);
   const isEmployee  = role === 'employee';
   const myUserId    = user?.id ? Number(user.id) : null;
 
-  useEffect(() => { setTaskList(tasks); }, [tasks]);
-  useEffect(() => { if (addingCol) inputRef.current?.focus(); }, [addingCol]);
+  useEffect(() => { setPage(1); }, [pageSize, filters]);
 
-  const { data: statusData } = useQuery({
+  // Employee mode: the full ("my tasks") list is eagerly fetched by the parent —
+  // keep a lookup map of it for handleMove / the detail modal.
+  useEffect(() => {
+    if (!isEmployee) return;
+    const map: Record<string, Task> = {};
+    tasks.forEach((t) => { map[t.id] = t; });
+    setLoadedTasks(map);
+  }, [tasks, isEmployee]);
+
+  function reportColumnLoaded(colId: string, count: number, colTasks: Task[]) {
+    setColumnCounts((prev) => (prev[colId] === count ? prev : { ...prev, [colId]: count }));
+    setLoadedTasks((prev) => {
+      const next = { ...prev };
+      colTasks.forEach((t) => { next[t.id] = t; });
+      return next;
+    });
+  }
+
+  const { data: statusData, isLoading: statusesLoading } = useQuery({
     queryKey: ['task-statuses'],
     queryFn:  taskStatusService.getAll,
     staleTime: 5 * 60 * 1000,
   });
 
-  useEffect(() => {
-    if (statusData?.results?.length) {
-      setOrderedColumns(
-        statusData.results.map((s) => ({ id: String(s.id), label: s.name, backendId: s.id }))
-      );
-    }
-  }, [statusData]);
+  // Derived directly from the query result (no state+effect lag) so director mode
+  // never fires a lazy fetch against the FALLBACK_COLUMNS placeholder ids.
+  const orderedColumns: BoardColumn[] = statusData?.results?.length
+    ? statusData.results.map((s) => ({ id: String(s.id), label: s.name, backendId: s.id }))
+    : FALLBACK_COLUMNS;
+
+  // Director mode fetches per real status id — wait for the real list instead of
+  // firing throwaway requests against the FALLBACK_COLUMNS placeholder ids.
+  const columnsReady = isEmployee || !statusesLoading;
 
   const { mutate: updateStatus } = useMutation({
     mutationFn: ({ id, statusId }: { id: string; statusId?: number }) =>
@@ -299,30 +427,8 @@ export default function TaskBoard({ tasks, projectName }: TaskBoardProps) {
     },
   });
 
-  const { mutate: createStatus, isPending: creatingStatus } = useMutation({
-    mutationFn: (name: string) => taskStatusService.create({ name }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['task-statuses'] });
-      setNewColLabel('');
-      setAddingCol(false);
-    },
-  });
-
-  const { mutate: reorderStatuses } = useMutation({
-    mutationFn: (cols: BoardColumn[]) =>
-      Promise.all(cols.map((col, idx) => taskStatusService.update(col.backendId, { order: idx + 1 }))),
-  });
-
-  const { mutate: removeStatus } = useMutation({
-    mutationFn: (backendId: string | number) => taskStatusService.delete(backendId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['task-statuses'] });
-      setDeletingCol(null);
-    },
-  });
-
   function handleMove(taskId: string, col: BoardColumn) {
-    const task = taskList.find((t) => t.id === taskId);
+    const task = loadedTasks[taskId];
 
     if (isEmployee && myUserId && task) {
       // Employee: never directly PATCH an arbitrary task.status — only call
@@ -361,9 +467,6 @@ export default function TaskBoard({ tasks, projectName }: TaskBoardProps) {
         return;
       }
 
-      setTaskList((prev) =>
-        prev.map((t) => t.id === taskId ? { ...t, status: col.id as Task['status'] } : t)
-      );
       const numericStatus = Number(col.backendId);
       updateStatus({ id: taskId, statusId: isNaN(numericStatus) ? undefined : numericStatus });
 
@@ -376,11 +479,8 @@ export default function TaskBoard({ tasks, projectName }: TaskBoardProps) {
   function confirmMoveToLast() {
     if (!pendingLastMove) return;
     const { taskId, col } = pendingLastMove;
-    const task = taskList.find((t) => t.id === taskId);
+    const task = loadedTasks[taskId];
 
-    setTaskList((prev) =>
-      prev.map((t) => t.id === taskId ? { ...t, status: col.id as Task['status'] } : t)
-    );
     const numericStatus = Number(col.backendId);
     updateStatus({ id: taskId, statusId: isNaN(numericStatus) ? undefined : numericStatus });
 
@@ -388,56 +488,35 @@ export default function TaskBoard({ tasks, projectName }: TaskBoardProps) {
     setPendingLastMove(null);
   }
 
-  function onDragEnd(result: DropResult) {
-    const { destination, source, type } = result;
-    if (!destination) return;
-    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
-    if (type !== 'COLUMN') return;
-
-    const next = Array.from(orderedColumns);
-    const [moved] = next.splice(source.index, 1);
-    next.splice(destination.index, 0, moved);
-    setOrderedColumns(next);
-    reorderStatuses(next);
+  if ((isLoading && isEmployee) || !columnsReady) {
+    return (
+      <div className="flex-1 min-h-0 w-full overflow-x-auto overflow-y-hidden px-3 md:px-6 pt-4 pb-4">
+        <div className="flex gap-3 md:gap-4 h-full">
+          {orderedColumns.map((col) => (
+            <SkBoardColumn key={col.id} />
+          ))}
+        </div>
+      </div>
+    );
   }
 
-  function handleAddColumn() {
-    const label = newColLabel.trim();
-    if (!label) { setAddingCol(false); return; }
-    createStatus(label);
+  // Employee: client-side grouping + slicing of the small, already-fetched "my tasks" set.
+  const columnTaskLists: Record<string, Task[]> = {};
+  if (isEmployee) {
+    orderedColumns.forEach((col) => {
+      columnTaskLists[col.id] = tasks.filter((t) => computeDisplayStatus(t, isEmployee, myUserId, orderedColumns) === col.id);
+    });
   }
+
+  const maxColumnCount = isEmployee
+    ? Math.max(0, ...orderedColumns.map((col) => columnTaskLists[col.id].length))
+    : Math.max(0, ...orderedColumns.map((col) => columnCounts[col.id] ?? 0));
+  const totalPages = Math.max(1, Math.ceil(maxColumnCount / pageSize));
 
   return (
     <>
-      {deletingCol && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <p className="text-base font-semibold text-dark">Ջնջե՞լ փուլը</p>
-              <p className="text-sm text-text-muted">
-                «<span className="font-medium text-dark">{deletingCol.label}</span>» փուլը կջնջվի։ Դրա մեջ եղած խնդիրները կմնան, բայց այս սյունակից կհեռացվեն։
-              </p>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setDeletingCol(null)}
-                className="px-4 py-2 text-sm font-medium rounded-lg border border-crm-border text-dark hover:bg-light transition-colors"
-              >
-                
-              </button>
-              <button
-                onClick={() => removeStatus(deletingCol.backendId)}
-                className="px-4 py-2 text-sm font-medium rounded-lg bg-error text-white hover:bg-error/90 transition-colors"
-              >
-                
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {pendingLastMove && (() => {
-        const task = taskList.find((t) => t.id === pendingLastMove.taskId);
+        const task = loadedTasks[pendingLastMove.taskId];
         const unfinished = task?.assignees?.filter((a) => !a.isDone).length ?? 0;
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
@@ -470,70 +549,86 @@ export default function TaskBoard({ tasks, projectName }: TaskBoardProps) {
         );
       })()}
 
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex-1 min-h-0 w-full overflow-x-auto overflow-y-auto px-3 md:px-6 pt-4 pb-4">
-          <Droppable droppableId="board-columns" direction="horizontal" type="COLUMN">
-            {(provided) => (
+      <div className="flex-1 min-h-0 w-full overflow-x-auto overflow-y-hidden px-3 md:px-6 pt-4 pb-4">
+        <div className="flex gap-3 md:gap-4 h-full">
+          {orderedColumns.map((col) => {
+            const count = isEmployee ? columnTaskLists[col.id].length : columnCounts[col.id];
+            return (
               <div
-                ref={provided.innerRef}
-                {...provided.droppableProps}
-                className="flex gap-3 md:gap-4 h-full"
+                key={col.id}
+                className="flex-shrink-0 w-[78vw] sm:w-auto sm:flex-1 sm:min-w-[180px] flex flex-col gap-3 h-full min-h-0"
               >
-                {orderedColumns.map((col, index) => (
-                  <Draggable draggableId={`col-${col.id}`} index={index} key={col.id}>
-                    {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        className="flex-shrink-0 w-[78vw] sm:w-auto sm:flex-1 sm:min-w-[180px] flex flex-col gap-3"
-                      >
-                        {/* Header acts as drag handle */}
-                        <div
-                          {...provided.dragHandleProps}
-                          className={`group relative text-center py-2.5 bg-white rounded-2xl border shadow-sm text-sm font-semibold text-dark flex-shrink-0 cursor-grab active:cursor-grabbing transition-all ${
-                            snapshot.isDragging
-                              ? 'border-primary/40 shadow-md'
-                              : 'border-gray-100'
-                          }`}
-                        >
-                          {col.label}
-                          {orderedColumns.length > 1 && (
-                            <button
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={() => setDeletingCol(col)}
-                              title="Ջնջել փուլը"
-                              className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 hover:bg-error/10 hover:text-error text-text-muted transition-all text-xs"
-                            >
-                              ✕
-                            </button>
-                          )}
-                        </div>
+                <div className="text-center py-2.5 bg-white rounded-2xl border border-gray-100 shadow-sm text-sm font-semibold text-dark flex-shrink-0">
+                  {col.label}
+                  <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-gray-100 text-gray-500 text-[11px] font-bold align-middle">
+                    {count ?? '…'}
+                  </span>
+                </div>
 
-                        <TaskColumn
-                          tasks={taskList.filter((t) => computeDisplayStatus(t, isEmployee, myUserId, orderedColumns) === col.id)}
-                          columns={orderedColumns}
-                          onOpen={setOpenTask}
-                          onMove={handleMove}
-                          isEmployee={isEmployee}
-                          myUserId={myUserId}
-                        />
-                      </div>
-                    )}
-                  </Draggable>
-                ))}
-
-                {provided.placeholder}
-
-
+                {isEmployee ? (
+                  <TaskColumn
+                    tasks={columnTaskLists[col.id].slice((page - 1) * pageSize, page * pageSize)}
+                    columns={orderedColumns}
+                    onOpen={setOpenTask}
+                    onMove={handleMove}
+                    isEmployee={isEmployee}
+                    myUserId={myUserId}
+                  />
+                ) : (
+                  <LazyTaskColumn
+                    col={col}
+                    page={page}
+                    pageSize={pageSize}
+                    filters={filters}
+                    columns={orderedColumns}
+                    onOpen={setOpenTask}
+                    onMove={handleMove}
+                    onLoaded={reportColumnLoaded}
+                  />
+                )}
               </div>
-            )}
-          </Droppable>
+            );
+          })}
         </div>
-      </DragDropContext>
+      </div>
+
+      {/* Shared pagination — one control for every column at once */}
+      <div className="flex items-center justify-center gap-4 px-3 md:px-6 pb-4 flex-shrink-0">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-text-muted">Ցույց տալ՝</span>
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+            className="px-2 py-1 text-xs rounded-lg border border-crm-border outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white"
+          >
+            {[5, 10, 25, 50, 100].map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+          <span className="text-xs text-text-muted">/ սյուն</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="w-7 h-7 flex items-center justify-center rounded-lg border border-crm-border bg-white text-text-muted hover:text-primary hover:border-primary/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            ‹
+          </button>
+          <span className="text-xs text-text-muted font-medium">{page} / {totalPages}</span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="w-7 h-7 flex items-center justify-center rounded-lg border border-crm-border bg-white text-text-muted hover:text-primary hover:border-primary/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            ›
+          </button>
+        </div>
+      </div>
 
       {openTask && (
         <TaskDetailModal
-          task={tasks.find((t) => t.id === openTask.id) ?? openTask}
+          task={loadedTasks[openTask.id] ?? openTask}
           projectName={projectName}
           onClose={() => setOpenTask(null)}
           allowSendDelivery={true}

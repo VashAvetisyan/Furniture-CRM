@@ -1,4 +1,4 @@
-import { request } from '@/lib/api';
+import { request, fetchAllPages } from '@/lib/api';
 
 // ── DTOs ──────────────────────────────────────────────────────────────────────
 
@@ -58,6 +58,30 @@ export interface CreateCallRequest {
   date: string;
 }
 
+export interface ClientListResponse {
+  count:    number;
+  next:     string | null;
+  previous: string | null;
+  results:  ClientDTO[];
+}
+
+export interface ClientListParams {
+  page?:       number;
+  pageSize?:   number;
+  source?:     number;
+  clientType?: 'individual' | 'legal';
+  dateFrom?:   string;
+  dateTo?:     string;
+  search?:     string;
+}
+
+export interface CallListParams {
+  isDone?:   boolean;
+  dateFrom?: string;
+  dateTo?:   string;
+  search?:   string;
+}
+
 // ── Service ───────────────────────────────────────────────────────────────────
 
 export const clientService = {
@@ -74,9 +98,32 @@ export const clientService = {
   },
 
   // Clients
-  async getAll(): Promise<ClientDTO[]> {
-    const res = await request<ClientDTO[] | { results: ClientDTO[] }>('/clients/', { method: 'GET' });
+  getAll(): Promise<ClientDTO[]> {
+    return fetchAllPages<ClientDTO>('/clients/');
+  },
+  // Server-side search — used by autocompletes/pickers so they only ever ask for
+  // a handful of matches instead of pulling the whole client list up front.
+  async search(query: string): Promise<ClientDTO[]> {
+    if (!query.trim()) return [];
+    const res = await request<ClientDTO[] | { results: ClientDTO[] }>(
+      `/clients/?search=${encodeURIComponent(query.trim())}`, { method: 'GET' },
+    );
     return Array.isArray(res) ? res : (res.results ?? []);
+  },
+  // One filtered/paginated page — used by the Clients list page so it only ever
+  // asks the backend for the page currently on screen, with filtering/search/date
+  // range pushed down to the server instead of pulling every client up front.
+  async getPage(params: ClientListParams = {}): Promise<ClientListResponse> {
+    const qs = new URLSearchParams();
+    qs.set('page', String(params.page ?? 1));
+    if (params.pageSize)   qs.set('page_size', String(params.pageSize));
+    if (params.source)     qs.set('source', String(params.source));
+    if (params.clientType) qs.set('client_type', params.clientType);
+    if (params.dateFrom)   qs.set('date_from', params.dateFrom);
+    if (params.dateTo)     qs.set('date_to', params.dateTo);
+    if (params.search)     qs.set('search', params.search);
+    const res = await request<ClientListResponse | ClientDTO[]>(`/clients/?${qs.toString()}`, { method: 'GET' });
+    return Array.isArray(res) ? { count: res.length, next: null, previous: null, results: res } : res;
   },
   create(data: CreateClientRequest) {
     return request<ClientDTO>('/clients/', { method: 'POST', body: data });
@@ -89,6 +136,18 @@ export const clientService = {
   },
 
   // Calls
+  // New dedicated list endpoint — previously the only way to see a client's calls
+  // was the `calls[]` array embedded on the client object itself.
+  async getCalls(clientId: number, params: CallListParams = {}): Promise<CallDTO[]> {
+    const qs = new URLSearchParams();
+    if (params.isDone !== undefined) qs.set('is_done', String(params.isDone));
+    if (params.dateFrom)             qs.set('date_from', params.dateFrom);
+    if (params.dateTo)               qs.set('date_to', params.dateTo);
+    if (params.search)               qs.set('search', params.search);
+    const sep = qs.toString() ? `?${qs.toString()}` : '';
+    const res = await request<CallDTO[] | { results: CallDTO[] }>(`/clients/${clientId}/calls/${sep}`, { method: 'GET' });
+    return Array.isArray(res) ? res : (res.results ?? []);
+  },
   addCall(clientId: number, data: CreateCallRequest) {
     return request<CallDTO>(`/clients/${clientId}/calls/`, { method: 'POST', body: data });
   },

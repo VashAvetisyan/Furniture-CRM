@@ -110,16 +110,16 @@ function SubItem({ label, href, Icon, active }: {
   return (
     <Link
       href={href}
-      className={`relative w-full flex items-center gap-2.5 pl-8 pr-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+      className={`relative w-full flex items-center gap-2.5 pl-8 pr-5 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
         active
           ? 'text-primary bg-primary-light shadow-sm'
           : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
       }`}
     >
       <Icon className="w-[15px] h-[15px] flex-shrink-0" />
-      <span>{label}</span>
+      <span className="truncate min-w-0">{label}</span>
       {active && (
-        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary" />
+        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
       )}
     </Link>
   );
@@ -145,7 +145,7 @@ function GroupNavItem({ entry, isOpen, anyChildActive, onToggle, isChildActive }
         }`}
       >
         <entry.Icon className="w-[18px] h-[18px] flex-shrink-0" />
-        <span className="flex-1 text-left">{entry.label}</span>
+        <span className="flex-1 text-left truncate min-w-0">{entry.label}</span>
         <svg
           className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
           viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
@@ -154,7 +154,7 @@ function GroupNavItem({ entry, isOpen, anyChildActive, onToggle, isChildActive }
           <path d="M6 9l6 6 6-6" />
         </svg>
         {anyChildActive && !isOpen && (
-          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary" />
+          <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
         )}
       </button>
 
@@ -183,16 +183,16 @@ function LinkNavItem({ label, href, Icon, active }: {
   return (
     <Link
       href={href}
-      className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+      className={`relative w-full flex items-center gap-3 px-3 py-2.5 pr-5 rounded-xl text-sm font-medium transition-all duration-200 ${
         active
           ? 'text-primary bg-primary-light shadow-sm'
           : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
       }`}
     >
       <Icon className="w-[18px] h-[18px] flex-shrink-0" />
-      <span>{label}</span>
+      <span className="truncate min-w-0">{label}</span>
       {active && (
-        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary" />
+        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
       )}
     </Link>
   );

@@ -97,3 +97,36 @@ export async function request<T>(endpoint: string, options: RequestOptions = {})
 
   return res.json() as Promise<T>;
 }
+
+// Some endpoints are used by the frontend as "give me the full list" (autocompletes,
+// totals, kanban boards) even though the backend paginates them (~25/page). Ask for
+// a much larger page (the DRF paginator's `page_size` override, confirmed working on
+// `/tasks/`) so the common case is a single request, then fire any remaining pages in
+// parallel instead of chaining requests one `next` at a time — far fewer round trips.
+const BULK_PAGE_SIZE = 200;
+
+export async function fetchAllPages<T>(endpoint: string): Promise<T[]> {
+  type Page = T[] | { results: T[]; next: string | null; count?: number };
+
+  const sep = endpoint.includes('?') ? '&' : '?';
+  const first: Page = await request(`${endpoint}${sep}page_size=${BULK_PAGE_SIZE}`, { method: 'GET' });
+  if (Array.isArray(first)) return first;
+
+  const all = [...(first.results ?? [])];
+  const pageSize = all.length;
+  const count = first.count ?? all.length;
+  if (!first.next || pageSize === 0 || count <= pageSize) return all;
+
+  const totalPages = Math.ceil(count / pageSize);
+  const rest = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, i) =>
+      request<Page>(`${endpoint}${sep}page_size=${BULK_PAGE_SIZE}&page=${i + 2}`, { method: 'GET' })
+    ),
+  );
+
+  for (const res of rest) {
+    all.push(...(Array.isArray(res) ? res : (res.results ?? [])));
+  }
+
+  return all;
+}

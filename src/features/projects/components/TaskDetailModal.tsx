@@ -691,7 +691,7 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                       disabled={isSendingDelivery}
                       className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-40"
                     >
-                      {isSendingDelivery ? '...' : task.delivery ? 'Թnrgrlu Arakvman' : 'Ուղղarkel Arakvman'}
+                      {isSendingDelivery ? '...' : task.delivery ? 'Թnrgrlu Arakvman' : 'Ուղղարկել Առաքման'}
                     </button>
                   )}
                   {allowArchive && (
@@ -918,9 +918,9 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                       <input value={newPayNote} onChange={(e) => setNewPayNote(e.target.value)} placeholder="Նշում..." className={inputCls()} />
                       {saveError && <p className="text-xs text-error">{saveError}</p>}
                       <div className="flex gap-2 justify-end">
-                        <button onClick={() => { setAddingPayment(false); setSaveError(''); }} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-crm-border text-dark hover:bg-gray-50 transition-colors">Chegharkel</button>
+                        <button onClick={() => { setAddingPayment(false); setSaveError(''); }} className="px-3 py-1.5 text-xs font-medium rounded-lg border border-crm-border text-dark hover:bg-gray-50 transition-colors">Չեղարկել</button>
                         <button onClick={() => addPaymentMutate()} disabled={isAddingPayment || !newPayAmt.trim()} className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-60">
-                          {isAddingPayment ? '...' : 'Kazmakerpel'}
+                          {isAddingPayment ? '...' : 'Ավելացնել'}
                         </button>
                       </div>
                     </div>
@@ -949,7 +949,7 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                         <p className={`text-2xl font-bold ${computedDebt <= 0 ? 'text-success' : 'text-error'}`}>
                           {computedDebt <= 0 ? '0' : computedDebt.toLocaleString()}&#1423;
                         </p>
-                        {computedDebt <= 0 && <p className="text-[10px] text-success font-semibold mt-0.5">&#x531;&#x574;&#x562;&#x578;&#x572;&#x57B;&#x578;&#x582;&#x569;&#x575;&#x561;&#x574;&#x562; &#x539;&#x279;&#x561;&#x580;&#x57E;&#x561;&#x56E; &#x2713; 8888</p>}
+                        {computedDebt <= 0 && <p className="text-[10px] text-success font-semibold mt-0.5">Ամբողջությամբ Վճարված ✓</p>}
                       </div>
                     </div>
                   );
@@ -1481,13 +1481,13 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                   <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
                 </svg>
               </div>
-              <p className="text-base font-bold text-dark text-center">Ուղarkel Arakvman</p>
+              <p className="text-base font-bold text-dark text-center">Ուղարկել Առաքման</p>
               <p className="text-xs text-text-muted text-center">{task.taskId} · {resolveClientName(task.client)}</p>
             </div>
 
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1.5">
-                <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Arakvman hasце</p>
+                <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Առաքման հասցե</p>
                 <input
                   value={sendDeliveryAddr}
                   onChange={(e) => setSendDeliveryAddr(e.target.value)}
@@ -1496,7 +1496,7 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Ստautsi anun</p>
+                <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Ստացողի անուն</p>
                 <input
                   value={sendDeliveryRecip}
                   onChange={(e) => setSendDeliveryRecip(e.target.value)}
@@ -1510,7 +1510,7 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                   value={sendDeliveryNotes}
                   onChange={(e) => setSendDeliveryNotes(e.target.value)}
                   rows={2}
-                  placeholder="Lratsuchner..."
+                  placeholder="Նշումներ..."
                   className="w-full px-3 py-2 text-sm rounded-xl border border-crm-border outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white resize-none"
                 />
               </div>
@@ -1523,14 +1523,14 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                 onClick={() => { setSendToDelivery(false); setSaveError(''); }}
                 className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl border border-crm-border text-dark hover:bg-gray-50 transition-colors"
               >
-                Chegharkei
+                Չեղարկել
               </button>
               <button
                 onClick={() => sendDeliveryMutate()}
                 disabled={isSendingDelivery}
                 className="flex-1 px-4 py-2.5 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-60"
               >
-                {isSendingDelivery ? '...' : 'Ughargel'}
+                {isSendingDelivery ? '...' : 'Ուղարկել'}
               </button>
             </div>
           </div>

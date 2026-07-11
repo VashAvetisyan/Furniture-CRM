@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ChevronDownIcon } from '@/components/icons';
+import { clientService } from '@/services/client.service';
 
 export interface PanelAssignee {
   id?: string;
@@ -23,12 +25,64 @@ interface ProjectsListPanelProps {
   onSelectEmployee: (name: string | null) => void;
   selectedRole?: string;
   onSelectRole?: (role: string) => void;
-  clients?: PanelClient[];
   selectedClientId?: number | null;
-  onSelectClient?: (id: number | null) => void;
+  selectedClientName?: string | null;
+  onSelectClient?: (id: number | null, name?: string) => void;
+  overdueOnly?: boolean;
+  onToggleOverdue?: () => void;
+  acceptanceFrom?: string;
+  acceptanceTo?: string;
+  onChangeAcceptanceFrom?: (v: string) => void;
+  onChangeAcceptanceTo?: (v: string) => void;
+  deadlineFrom?: string;
+  deadlineTo?: string;
+  onChangeDeadlineFrom?: (v: string) => void;
+  onChangeDeadlineTo?: (v: string) => void;
 }
 
 const ALL = 'Բոլոր';
+
+function DateRangeFilter({
+  label, from, to, onChangeFrom, onChangeTo,
+}: {
+  label: string;
+  from: string;
+  to: string;
+  onChangeFrom?: (v: string) => void;
+  onChangeTo?: (v: string) => void;
+}) {
+  const active = !!from || !!to;
+  return (
+    <div className="mb-3">
+      <div className="flex items-center justify-between mb-1.5">
+        <p className={`text-[11px] font-semibold ${active ? 'text-primary' : 'text-text-muted'}`}>{label}</p>
+        {active && (
+          <button
+            onClick={() => { onChangeFrom?.(''); onChangeTo?.(''); }}
+            className="text-[11px] text-text-muted hover:text-error transition-colors"
+          >
+            Մաքրել
+          </button>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        <input
+          type="date"
+          value={from}
+          onChange={(e) => onChangeFrom?.(e.target.value)}
+          className="w-full px-1.5 py-1.5 text-[11px] rounded-lg border border-crm-border outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+        />
+        <input
+          type="date"
+          value={to}
+          min={from || undefined}
+          onChange={(e) => onChangeTo?.(e.target.value)}
+          className="w-full px-1.5 py-1.5 text-[11px] rounded-lg border border-crm-border outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function ProjectsListPanel({
   assignees,
@@ -36,9 +90,19 @@ export default function ProjectsListPanel({
   onSelectEmployee,
   selectedRole: selectedRoleProp,
   onSelectRole,
-  clients = [],
   selectedClientId,
+  selectedClientName,
   onSelectClient,
+  overdueOnly = false,
+  onToggleOverdue,
+  acceptanceFrom = '',
+  acceptanceTo = '',
+  onChangeAcceptanceFrom,
+  onChangeAcceptanceTo,
+  deadlineFrom = '',
+  deadlineTo = '',
+  onChangeDeadlineFrom,
+  onChangeDeadlineTo,
 }: ProjectsListPanelProps) {
   const [collapsed, setCollapsed]         = useState(false);
   const [tab, setTab]                     = useState<'employees' | 'clients'>('employees');
@@ -51,6 +115,7 @@ export default function ProjectsListPanel({
   };
   const [empSearch, setEmpSearch]         = useState('');
   const [clientSearch, setClientSearch]   = useState('');
+  const [clientSearchDebounced, setClientSearchDebounced] = useState('');
   const [dropdownOpen, setDropdownOpen]   = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -64,16 +129,31 @@ export default function ProjectsListPanel({
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  // Debounce client search so typing doesn't fire a request on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setClientSearchDebounced(clientSearch.trim()), 300);
+    return () => clearTimeout(t);
+  }, [clientSearch]);
+
+  const { data: clientResults, isFetching: clientsSearching } = useQuery({
+    queryKey: ['clients-search', clientSearchDebounced],
+    queryFn:  () => clientService.search(clientSearchDebounced),
+    enabled:  clientSearchDebounced.length > 0,
+    staleTime: 30_000,
+  });
+
+  const filteredClients: PanelClient[] = (clientResults ?? []).map((c) => ({
+    id:    c.id,
+    name:  `${c.first_name} ${c.last_name}`.trim(),
+    phone: c.phone || undefined,
+  }));
+
   const filteredEmployees = assignees
     .filter((a) => selectedRole === ALL || a.role === selectedRole)
     .filter((a) => a.name.toLowerCase().includes(empSearch.toLowerCase()));
 
-  const filteredClients = clients.filter((c) =>
-    c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-    (c.phone ?? '').includes(clientSearch)
-  );
-
-  const hasActiveFilter = !!selectedEmployeeName || !!selectedClientId;
+  const hasActiveFilter = !!selectedEmployeeName || !!selectedClientId || overdueOnly ||
+    !!acceptanceFrom || !!acceptanceTo || !!deadlineFrom || !!deadlineTo;
 
   /* ── Collapsed ── */
   if (collapsed) {
@@ -114,6 +194,40 @@ export default function ProjectsListPanel({
             </svg>
           </button>
         </div>
+
+        {/* Overdue toggle */}
+        {onToggleOverdue && (
+          <button
+            onClick={onToggleOverdue}
+            className={`w-full flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl border transition-all mb-3 ${
+              overdueOnly
+                ? 'border-error/30 bg-error/10 text-error'
+                : 'border-crm-border text-text-muted hover:bg-gray-50'
+            }`}
+          >
+            <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span className="flex-1 text-left">Ժամկետանց</span>
+            {overdueOnly && <span className="text-error/60">✕</span>}
+          </button>
+        )}
+
+        {/* Date range filters */}
+        <DateRangeFilter
+          label="Ընդունման ամսաթիվ"
+          from={acceptanceFrom}
+          to={acceptanceTo}
+          onChangeFrom={onChangeAcceptanceFrom}
+          onChangeTo={onChangeAcceptanceTo}
+        />
+        <DateRangeFilter
+          label="Վերջնաժամկետ"
+          from={deadlineFrom}
+          to={deadlineTo}
+          onChangeFrom={onChangeDeadlineFrom}
+          onChangeTo={onChangeDeadlineTo}
+        />
 
         {/* Tabs */}
         <div className="flex bg-gray-100 rounded-xl p-0.5 mb-3">
@@ -258,7 +372,7 @@ export default function ProjectsListPanel({
             <div className="px-3 pt-2 flex-shrink-0">
               <div className="flex items-center gap-1.5 bg-primary-light border border-primary/20 rounded-full px-2.5 py-1">
                 <span className="text-[11px] text-primary font-medium truncate flex-1">
-                  {clients.find((c) => c.id === selectedClientId)?.name ?? ''}
+                  {selectedClientName ?? ''}
                 </span>
                 <button onClick={() => onSelectClient(null)} className="text-primary/60 hover:text-primary text-xs leading-none">✕</button>
               </div>
@@ -266,8 +380,12 @@ export default function ProjectsListPanel({
           )}
 
           <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-1.5">
-            {filteredClients.length === 0 ? (
-              <p className="text-xs text-text-muted text-center py-8">Հաճախորդներ չկան</p>
+            {clientSearchDebounced.length === 0 ? (
+              <p className="text-xs text-text-muted text-center py-8">Գրեք հաճախորդի անունը կամ հեռախոսը</p>
+            ) : clientsSearching ? (
+              <p className="text-xs text-text-muted text-center py-8">Փնտրում ենք...</p>
+            ) : filteredClients.length === 0 ? (
+              <p className="text-xs text-text-muted text-center py-8">Հաճախորդներ չեն գտնվել</p>
             ) : (
               filteredClients.map((client) => {
                 const isSelected = client.id === selectedClientId;
@@ -275,7 +393,7 @@ export default function ProjectsListPanel({
                 return (
                   <button
                     key={client.id}
-                    onClick={() => onSelectClient?.(isSelected ? null : client.id)}
+                    onClick={() => onSelectClient?.(isSelected ? null : client.id, isSelected ? undefined : client.name)}
                     className={`w-full text-left px-3 py-2.5 rounded-xl border transition-all flex items-center gap-2.5 ${
                       isSelected
                         ? 'border-primary/30 bg-primary/5 border-l-4 border-l-primary'

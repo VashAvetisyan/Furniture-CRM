@@ -129,7 +129,7 @@ function ResetPasswordModal({ onClose, onSubmit, isPending, error }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl border border-crm-border p-6 w-80 flex flex-col gap-4">
+      <div className="relative bg-white rounded-2xl shadow-xl border border-crm-border p-6 w-80 max-w-[calc(100vw-2rem)] flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-dark">Փոխել գաղտնաբառը</h3>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 text-text-muted transition-colors">✕</button>
@@ -209,7 +209,7 @@ function ConfirmModal({ onConfirm, onCancel, isPending }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative bg-white rounded-2xl shadow-xl border border-crm-border p-6 w-80 flex flex-col items-center gap-4">
+      <div className="relative bg-white rounded-2xl shadow-xl border border-crm-border p-6 w-80 max-w-[calc(100vw-2rem)] flex flex-col items-center gap-4">
         <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
           <PencilIcon />
         </div>
@@ -524,7 +524,7 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
           </span>
           <div className="flex items-center gap-2">
             <button onClick={() => setSelectedIds(new Set())} className="px-3 py-1.5 text-xs rounded-lg border border-primary/30 text-primary hover:bg-primary/10 transition-colors">
-              Չеղarkel
+              Չեղարկել
             </button>
             <button
               onClick={payAllSelected}
@@ -536,7 +536,7 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
               ) : (
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               )}
-              {bulkPaying ? 'Vcharum...' : `Pay ${selectedIds.size} fully`}
+              {bulkPaying ? 'Վճարում...' : `Վճարել ${selectedIds.size} ամբողջությամբ`}
             </button>
           </div>
         </div>
@@ -610,7 +610,7 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                         <p className="text-sm font-bold text-dark">{salary.toLocaleString('hy-AM')} ֏</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-[10px] text-text-muted">Վչարված</p>
+                        <p className="text-[10px] text-text-muted">Վճարված</p>
                         <p className="text-sm font-bold text-success">{totalPaidForTask.toLocaleString('hy-AM')} ֏</p>
                       </div>
                       <div className="text-center">
@@ -633,7 +633,7 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                           onClick={() => { if (isOpen) { setOpenId(null); } else { openPayForm(t); t.id && setExpandedIds(p => new Set(p).add(t.id!)); } }}
                           className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${isOpen ? "bg-primary text-white border-primary" : isPartial ? "border-warning text-warning" : "border-crm-border text-text-muted hover:border-primary hover:text-primary"}`}
                         >
-                          {isPartial ? "Մasнаki" : "Վchарел"}
+                          {isPartial ? "Մասնակի" : "Վճարել"}
                         </button>
                       )}
                     </div>
@@ -657,7 +657,7 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                           </div>
                           <div className="flex gap-2">
                             <input type="datetime-local" value={payDate} onChange={(e) => setPayDate(e.target.value)} className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-crm-border outline-none focus:border-primary bg-white" />
-                            <button onClick={() => submitPay(t)} disabled={recording || !payAmount || Number(payAmount) <= 0} className="px-3 py-1.5 bg-success text-white text-xs font-semibold rounded-lg disabled:opacity-50">{recording ? '...' : 'Վչարել'}</button>
+                            <button onClick={() => submitPay(t)} disabled={recording || !payAmount || Number(payAmount) <= 0} className="px-3 py-1.5 bg-success text-white text-xs font-semibold rounded-lg disabled:opacity-50">{recording ? '...' : 'Վճարել'}</button>
                             <button onClick={() => setOpenId(null)} className="px-2 py-1.5 border border-crm-border text-text-muted rounded-lg text-xs">✕</button>
                           </div>
                         </div>
@@ -669,7 +669,7 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
             })}
             {/* Footer */}
             <div className="bg-white rounded-2xl border border-crm-border p-4 flex items-center justify-between">
-              <span className="text-xs font-bold text-text-muted">Ենդհանուր</span>
+              <span className="text-xs font-bold text-text-muted">Ընդհանուր</span>
               <span className="text-sm font-bold text-primary">{total.toLocaleString('hy-AM')} ֏</span>
             </div>
           </div>
@@ -687,11 +687,11 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                 }}
               />
               <span />
-              <span className="text-xs font-semibold text-text-muted">Պatvrnerr</span>
-              <span className="text-xs font-semibold text-text-muted">Վerdjnazhamket</span>
-              <span className="text-xs font-semibold text-text-muted">Կatus</span>
-              <span className="text-xs font-semibold text-text-muted text-right">Աշխատավարխներ</span>
-              <span className="text-xs font-semibold text-text-muted text-center">Վчарел</span>
+              <span className="text-xs font-semibold text-text-muted">Պատվեր</span>
+              <span className="text-xs font-semibold text-text-muted">Վերջնաժամկետ</span>
+              <span className="text-xs font-semibold text-text-muted">Կարգավիճակ</span>
+              <span className="text-xs font-semibold text-text-muted text-right">Աշխատավարձ</span>
+              <span className="text-xs font-semibold text-text-muted text-center">Վճարում</span>
             </div>
             {tasksWithSalary.map((t) => {
               const status   = STATUS_LABELS[t.status] ?? { label: String(t.status), cls: 'bg-gray-100 text-gray-500' };
@@ -764,7 +764,7 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                           <span className="w-7 flex-shrink-0" />
                           <input type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} className="w-28 px-2 py-1.5 text-sm rounded-lg border border-crm-border outline-none focus:border-primary bg-white" placeholder="0" />
                           <span className="text-xs text-text-muted">֏</span>
-                          <input type="text" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="Nishum..." className="flex-1 min-w-0 px-2 py-1.5 text-sm rounded-lg border border-crm-border outline-none focus:border-primary bg-white" />
+                          <input type="text" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="Նշումներ..." className="flex-1 min-w-0 px-2 py-1.5 text-sm rounded-lg border border-crm-border outline-none focus:border-primary bg-white" />
                           <input type="datetime-local" value={payDate} onChange={(e) => setPayDate(e.target.value)} className="px-2 py-1.5 text-sm rounded-lg border border-crm-border outline-none focus:border-primary bg-white flex-shrink-0" />
                           <button onClick={() => submitPay(t)} disabled={recording || !payAmount || Number(payAmount) <= 0} className="px-3 py-1.5 bg-success text-white text-xs font-semibold rounded-lg hover:bg-green-600 disabled:opacity-50 flex-shrink-0">{recording ? '...' : 'Վچарел'}</button>
                           <button onClick={() => setOpenId(null)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-crm-border text-text-muted hover:text-error text-xs flex-shrink-0">✕</button>
@@ -777,7 +777,7 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
             })}
             <div className="grid grid-cols-[20px_32px_1fr_110px_90px_110px_130px] gap-3 px-5 py-3 bg-gray-50 border-t border-crm-border">
               <span /><span />
-              <span className="text-xs font-bold text-dark">Ендhanuр</span>
+              <span className="text-xs font-bold text-dark">Ընդհանուր</span>
               <span /><span />
               <span className="text-sm font-bold text-primary text-right">{total.toLocaleString('hy-AM')} ֏</span>
               <span />
@@ -1105,13 +1105,13 @@ export default function EmployeeProfilePage({ id }: { id: string }) {
 
         {/* Right panel */}
         <div className="flex-1 min-w-0 w-full">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-1 bg-white border border-crm-border rounded-full p-1 shadow-sm overflow-x-auto max-w-full">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div className="flex items-center gap-1 bg-white border border-crm-border rounded-full p-1 shadow-sm overflow-x-auto max-w-full self-start">
               {(Object.keys(TAB_LABELS) as Tab[]).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  className={`px-3 sm:px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
                     activeTab === tab
                       ? 'bg-primary text-white shadow-sm'
                       : 'text-text-muted hover:text-dark'
@@ -1127,7 +1127,7 @@ export default function EmployeeProfilePage({ id }: { id: string }) {
               <button
                 onClick={() => toggleActive(!(employee.isActive ?? true))}
                 disabled={isToggling}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold border transition-all disabled:opacity-60 ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold border transition-all disabled:opacity-60 self-start ${
                   (employee.isActive ?? true)
                     ? 'bg-success/10 text-success border-success/30 hover:bg-success/20'
                     : 'bg-error/10 text-error border-error/30 hover:bg-error/20'

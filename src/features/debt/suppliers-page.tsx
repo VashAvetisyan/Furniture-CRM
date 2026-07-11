@@ -16,7 +16,7 @@ const DEBT_STATUS: Record<string, { label: string; cls: string }> = {
   paid:    { label: 'Վճարված',   cls: 'bg-success/10 text-success' },
   partial: { label: 'Մասնակի',     cls: 'bg-warning/10 text-warning' },
   pending: { label: 'Չվճարված', cls: 'bg-error/10 text-error'     },
-  overdue: { label: 'կալանծած',   cls: 'bg-red-100 text-red-700'    },
+  overdue: { label: 'Կատարված',   cls: 'bg-red-100 text-red-700'    },
 };
 
 
@@ -25,7 +25,7 @@ const DEBT_FILTERS = [
   { value: 'pending', label: 'Չվճարված' },
   { value: 'partial', label: 'Մասնակի' },
   { value: 'paid',    label: 'Վճարված' },
-  { value: 'overdue', label: 'կալանծած' },
+  { value: 'overdue', label: 'Կատարված' },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────────

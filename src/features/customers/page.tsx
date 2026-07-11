@@ -1,7 +1,7 @@
 ﻿'use client';
 import { SkTable } from '@/components/ui/Skeleton';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clientService } from '@/services/client.service';
 import type { ClientDTO, SourceDTO, CreateClientRequest } from '@/services/client.service';
@@ -57,6 +57,55 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('hy-AM', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+const PAGE_SIZE = 20;
+
+function ChevronLeftIcon() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  );
+}
+
+function Pagination({
+  page, total, pageSize, onPrev, onNext,
+}: {
+  page: number; total: number; pageSize: number; onPrev: () => void; onNext: () => void;
+}) {
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+  const hasNext = to < total;
+  const hasPrev = page > 1;
+
+  return (
+    <div className="flex items-center justify-end gap-3 mt-4 flex-shrink-0">
+      <span className="text-sm text-text-muted">{from}–{to} / {total}</span>
+      <button
+        onClick={onPrev}
+        disabled={!hasPrev}
+        className="p-1.5 rounded-lg border border-crm-border bg-white hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-text-muted hover:text-dark"
+      >
+        <ChevronLeftIcon />
+      </button>
+      <button
+        onClick={onNext}
+        disabled={!hasNext}
+        className="p-1.5 rounded-lg border border-crm-border bg-white hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-text-muted hover:text-dark"
+      >
+        <ChevronRightIcon />
+      </button>
+    </div>
+  );
+}
+
 const inputCls =
   'w-full px-3 py-2.5 text-sm rounded-xl border border-crm-border focus:outline-none focus:ring-2 focus:ring-primary/30 text-dark bg-white placeholder:text-text-muted/50';
 
@@ -96,15 +145,23 @@ function CallHistoryModal({ client, onClose, onBack }: {
   const [note, setNote] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 
+  // Lazily fetched via the dedicated calls-list endpoint instead of relying on the
+  // (potentially large) `calls[]` array embedded on the client object.
+  const { data: rawCalls, isLoading: callsLoading } = useQuery({
+    queryKey: ['client-calls', client.id],
+    queryFn:  () => clientService.getCalls(client.id),
+  });
+
   const calls = useMemo(
-    () => [...(client.calls ?? [])].sort((a, b) => b.date.localeCompare(a.date)),
-    [client.calls],
+    () => [...(rawCalls ?? [])].sort((a, b) => b.date.localeCompare(a.date)),
+    [rawCalls],
   );
 
   const { mutate: addCall, isPending } = useMutation({
     mutationFn: (data: { note: string; date: string }) =>
       clientService.addCall(client.id, data),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['client-calls', client.id] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       setNote('');
       setDate(new Date().toISOString().slice(0, 10));
@@ -184,7 +241,9 @@ function CallHistoryModal({ client, onClose, onBack }: {
 
         {/* History */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {calls.length === 0 ? (
+          {callsLoading ? (
+            <div className="flex items-center justify-center h-28 text-text-muted text-sm">Բեռնվում է...</div>
+          ) : calls.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-28 gap-2 text-center">
               <svg className="w-8 h-8 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.9 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.75a16 16 0 006.16 6.16l1.21-1.21a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
@@ -646,6 +705,12 @@ function CustomerViewModal({ client, sources, onClose, onEdit, onViewTasks, onVi
   const initials = `${client.first_name.charAt(0)}${(client.last_name ?? '').charAt(0)}`.toUpperCase();
   const fullName = [client.first_name, client.last_name].filter(Boolean).join(' ');
 
+  // Lazy — only fetched while this modal is open, for the call-count stat below.
+  const { data: calls } = useQuery({
+    queryKey: ['client-calls', client.id],
+    queryFn:  () => clientService.getCalls(client.id),
+  });
+
   const phoneIcon = (
     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.69A2 2 0 012 .9h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.75a16 16 0 006.16 6.16l1.21-1.21a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
@@ -794,7 +859,7 @@ function CustomerViewModal({ client, sources, onClose, onEdit, onViewTasks, onVi
                 <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.69A2 2 0 012 .9h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.75a16 16 0 006.16 6.16l1.21-1.21a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
               </svg>
               <div>
-                <p className="text-xs font-bold text-success">{client.calls?.length ?? 0}</p>
+                <p className="text-xs font-bold text-success">{calls?.length ?? '—'}</p>
                 <p className="text-[11px] text-text-muted">Զանգեր</p>
               </div>
             </button>
@@ -844,11 +909,52 @@ export default function CustomersPage() {
   const [deleteItem,    setDeleteItem]     = useState<ClientDTO | null>(null);
   const [viewTasksItem, setViewTasksItem]  = useState<ClientDTO | null>(null);
   const [viewCallsItem, setViewCallsItem]  = useState<ClientDTO | null>(null);
-  const [search,        setSearch]         = useState('');
+  const [search,          setSearch]          = useState('');
+  const [searchDebounced, setSearchDebounced] = useState('');
+  const [sourceFilter,    setSourceFilter]    = useState<number | null>(null);
+  const [typeFilter,      setTypeFilter]      = useState<'individual' | 'legal' | null>(null);
+  const [dateFrom,        setDateFrom]        = useState('');
+  const [dateTo,          setDateTo]          = useState('');
+  const [page,            setPage]            = useState(1);
 
-  const { data: clients = [], isLoading } = useQuery({
-    queryKey: ['clients'],
-    queryFn:  clientService.getAll,
+  // Debounce search so typing doesn't fire a request on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Reset to page 1 whenever a filter changes — an active page number from a
+  // previous filter can otherwise point past the end of a newly filtered result set.
+  useEffect(() => {
+    setPage(1);
+  }, [searchDebounced, sourceFilter, typeFilter, dateFrom, dateTo]);
+
+  const listParams = useMemo(() => ({
+    page,
+    pageSize:   PAGE_SIZE,
+    source:     sourceFilter ?? undefined,
+    clientType: typeFilter ?? undefined,
+    dateFrom:   dateFrom || undefined,
+    dateTo:     dateTo || undefined,
+    search:     searchDebounced || undefined,
+  }), [page, sourceFilter, typeFilter, dateFrom, dateTo, searchDebounced]);
+
+  const hasActiveFilter = !!searchDebounced || sourceFilter != null || typeFilter != null || !!dateFrom || !!dateTo;
+
+  const { data: listResponse, isLoading, isFetching } = useQuery({
+    queryKey:        ['clients', 'page', listParams],
+    queryFn:         () => clientService.getPage(listParams),
+    placeholderData: (prev) => prev,
+  });
+  const paged      = listResponse?.results ?? [];
+  const totalCount = listResponse?.count ?? 0;
+
+  // Unfiltered grand total for the "Ընդհանուր" summary card — kept separate from
+  // the filtered list query above so switching filters doesn't make that number jump around.
+  const { data: grandTotal = 0 } = useQuery({
+    queryKey: ['clients', 'count'],
+    queryFn:  () => clientService.getPage({ page: 1, pageSize: 1 }).then((r) => r.count),
+    staleTime: 60_000,
   });
 
   const { data: sources = [] } = useQuery({
@@ -864,22 +970,6 @@ export default function CustomersPage() {
     },
   });
 
-  const filtered = useMemo(() => {
-    const list = search.trim()
-      ? clients.filter((c) => {
-          const q = search.toLowerCase();
-          return (
-            `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
-            c.phone.includes(q) ||
-            c.email.toLowerCase().includes(q)
-          );
-        })
-      : [...clients];
-    return list.sort((a, b) => b.id - a.id);
-  }, [clients, search]);
-
-  const totalCalls = clients.reduce((s, c) => s + (c.calls?.length ?? 0), 0);
-
   return (
     <div className="animate-fade-in absolute inset-0 flex flex-col p-4 overflow-y-auto">
 
@@ -887,7 +977,7 @@ export default function CustomersPage() {
       <div className="flex items-center justify-between mb-4 md:mb-5 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-dark">Հաճախորդներ</h1>
-          <p className="text-xs text-text-muted mt-0.5">{clients.length} հաճախորդ</p>
+          <p className="text-xs text-text-muted mt-0.5">{totalCount} հաճախորդ</p>
         </div>
         <button
           onClick={() => setAddOpen(true)}
@@ -901,7 +991,7 @@ export default function CustomersPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5 flex-shrink-0">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5 flex-shrink-0">
         <div className="bg-white rounded-2xl border border-crm-border p-5 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
             <svg className="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -910,7 +1000,7 @@ export default function CustomersPage() {
           </div>
           <div>
             <p className="text-xs text-text-muted">Ընդհանուր</p>
-            <p className="text-xl font-bold text-primary">{clients.length}</p>
+            <p className="text-xl font-bold text-primary">{grandTotal}</p>
             <p className="text-xs text-text-muted mt-0.5">հաճախորդ</p>
           </div>
         </div>
@@ -927,23 +1017,10 @@ export default function CustomersPage() {
             <p className="text-xs text-text-muted mt-0.5">տեսակ</p>
           </div>
         </div>
-
-        <div className="bg-white rounded-2xl border border-crm-border p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center flex-shrink-0">
-            <svg className="w-6 h-6 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.69A2 2 0 012 .9h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.75a16 16 0 006.16 6.16l1.21-1.21a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
-            </svg>
-          </div>
-          <div>
-            <p className="text-xs text-text-muted">Զանգեր</p>
-            <p className="text-xl font-bold text-success">{totalCalls}</p>
-            <p className="text-xs text-text-muted mt-0.5">ընդհանուր զանգ</p>
-          </div>
-        </div>
       </div>
 
       {/* Search */}
-      <div className="relative mb-4 flex-shrink-0">
+      <div className="relative mb-3 flex-shrink-0">
         <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
@@ -955,11 +1032,68 @@ export default function CustomersPage() {
         />
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2 mb-4 flex-shrink-0">
+        {/* Client type pills */}
+        <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+          {([[null, 'Բոլորը'], ['individual', 'Ֆիզիկական'], ['legal', 'Իրավաբանական']] as const).map(([val, label]) => (
+            <button
+              key={label}
+              onClick={() => setTypeFilter(val)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${typeFilter === val ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Source select */}
+        <select
+          value={sourceFilter ?? 'all'}
+          onChange={(e) => setSourceFilter(e.target.value === 'all' ? null : Number(e.target.value))}
+          className="px-3 py-2 text-sm rounded-xl border border-crm-border bg-white text-dark focus:outline-none focus:ring-2 focus:ring-primary/30"
+        >
+          <option value="all">Բոլոր աղբյուրները</option>
+          {sources.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+
+        {/* Created-date range */}
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="px-3 py-2 text-sm rounded-xl border border-crm-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <span className="text-text-muted text-sm flex-shrink-0">—</span>
+          <input
+            type="date"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="px-3 py-2 text-sm rounded-xl border border-crm-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
+
+        {hasActiveFilter && (
+          <button
+            onClick={() => { setSearch(''); setSourceFilter(null); setTypeFilter(null); setDateFrom(''); setDateTo(''); }}
+            className="flex items-center gap-1 px-3 py-2 text-xs rounded-xl border border-crm-border text-text-muted hover:text-error hover:border-error/40 transition-colors bg-white"
+          >
+            ✕ Մաքրել ֆիլտրերը
+          </button>
+        )}
+
+        {isFetching && !isLoading && <span className="text-xs text-text-muted">Թարմացվում է...</span>}
+      </div>
+
       {/* List */}
       <div className="flex-shrink-0">
         {isLoading ? (
           <div className="bg-white rounded-2xl border border-crm-border overflow-hidden p-4"><SkTable rows={6} cols={5} /></div>
-        ) : filtered.length === 0 ? (
+        ) : paged.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3 bg-white rounded-2xl border border-dashed border-crm-border">
             <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
               <svg className="w-7 h-7 text-primary/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -967,14 +1101,14 @@ export default function CustomersPage() {
               </svg>
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium text-dark">{search ? 'Հաճախորդներ չկան' : 'Դեռ Հաճախորդներ չկա'}</p>
+              <p className="text-sm font-medium text-dark">{hasActiveFilter ? 'Հաճախորդներ չկան' : 'Դեռ Հաճախորդներ չկա'}</p>
             </div>
           </div>
         ) : (
           <>
             {/* Mobile cards */}
             <div className="md:hidden flex flex-col gap-3">
-              {filtered.map((c) => (
+              {paged.map((c) => (
                 <div key={c.id} onClick={() => setViewItem(c)} className="bg-white rounded-2xl border border-crm-border p-4 flex flex-col gap-3 cursor-pointer hover:border-primary/30 hover:shadow-sm transition-all">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -995,9 +1129,9 @@ export default function CustomersPage() {
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     {c.source && <SourceBadge source={c.source} />}
-                    <button onClick={(e) => { e.stopPropagation(); setViewCallsItem(c); }} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-colors ${(c.calls?.length ?? 0) > 0 ? 'bg-success/10 text-success' : 'bg-gray-100 text-text-muted'}`}>
+                    <button onClick={(e) => { e.stopPropagation(); setViewCallsItem(c); }} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-success/10 text-success transition-colors">
                       <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.69A2 2 0 012 .9h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.75a16 16 0 006.16 6.16l1.21-1.21a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-                      {(c.calls?.length ?? 0) > 0 ? c.calls.length : '0'} 
+                      Զանգեր
                     </button>
                     <button onClick={(e) => { e.stopPropagation(); setViewTasksItem(c); }} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary hover:bg-primary/20 transition-colors">Պատվերներ</button>
                   </div>
@@ -1016,7 +1150,7 @@ export default function CustomersPage() {
                 <span className="text-xs font-semibold text-text-muted text-center">Պատվերներ</span>
                 <span />
               </div>
-              {filtered.map((c) => (
+              {paged.map((c) => (
                 <div key={c.id} onClick={() => setViewItem(c)} className="grid grid-cols-[1fr_140px_150px_100px_90px_90px_72px] gap-4 px-5 py-3.5 border-b border-crm-border last:border-b-0 hover:bg-primary/5 transition-colors items-center cursor-pointer min-w-[800px]">
                   <div className="min-w-0 flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0"><span className="text-xs font-bold text-primary">{c.first_name.charAt(0).toUpperCase()}{c.last_name.charAt(0).toUpperCase()}</span></div>
@@ -1026,9 +1160,9 @@ export default function CustomersPage() {
                   {c.email ? <a href={`mailto:${c.email}`} onClick={(e) => e.stopPropagation()} className="text-sm text-text-muted hover:text-primary truncate">{c.email}</a> : <span className="text-sm text-text-muted/40">--</span>}
                   <SourceBadge source={c.source} />
                   <div className="flex justify-center">
-                    <button onClick={(e) => { e.stopPropagation(); setViewCallsItem(c); }} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-colors ${(c.calls?.length ?? 0) > 0 ? 'bg-success/10 text-success hover:bg-success/20' : 'bg-gray-100 text-text-muted hover:bg-gray-200'}`}>
+                    <button onClick={(e) => { e.stopPropagation(); setViewCallsItem(c); }} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-success/10 text-success hover:bg-success/20 transition-colors">
                       <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81a19.79 19.79 0 01-3.07-8.69A2 2 0 012 .9h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 8.75a16 16 0 006.16 6.16l1.21-1.21a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-                      {(c.calls?.length ?? 0) > 0 ? c.calls.length : '+'}
+                      Զանգեր
                     </button>
                   </div>
                   <div className="flex justify-center">
@@ -1041,6 +1175,14 @@ export default function CustomersPage() {
                 </div>
               ))}
             </div>
+
+            <Pagination
+              page={page}
+              total={totalCount}
+              pageSize={PAGE_SIZE}
+              onPrev={() => setPage((p) => Math.max(1, p - 1))}
+              onNext={() => setPage((p) => p + 1)}
+            />
           </>
         )}
       </div>

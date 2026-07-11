@@ -6,7 +6,6 @@ import { PlusIcon, ListViewIcon, BoardViewIcon, TimelineViewIcon } from '@/compo
 import { employeeService } from '@/services/employee.service';
 import { positionService } from '@/services/position.service';
 import { taskService, type TaskListResponse } from '@/services/task.service';
-import { clientService } from '@/services/client.service';
 import { useAuthStore } from '@/stores';
 import dynamic from 'next/dynamic';
 import TaskBoard from './components/TaskBoard';
@@ -17,14 +16,46 @@ import type { Task } from './types';
 
 const AddTaskModal = dynamic(() => import('./components/AddTaskModal'), { ssr: false });
 
+function isOverdue(deadline?: string): boolean {
+  if (!deadline) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return new Date(deadline) < today;
+}
+
+function inDateRange(iso: string | undefined, from: string, to: string): boolean {
+  if (!from && !to) return true;
+  if (!iso) return false;
+  const d = new Date(iso);
+  d.setHours(0, 0, 0, 0);
+  if (from) {
+    const f = new Date(from);
+    f.setHours(0, 0, 0, 0);
+    if (d < f) return false;
+  }
+  if (to) {
+    const t = new Date(to);
+    t.setHours(23, 59, 59, 999);
+    if (d > t) return false;
+  }
+  return true;
+}
+
 export default function TasksPage() {
   const { role } = useAuthStore();
   const isAdmin    = role === 'director';
   const isEmployee = role === 'employee';
 
+  const [taskSearch, setTaskSearch]                 = useState('');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [filterRole, setFilterRole]                 = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId]     = useState<number | null>(null);
+  const [selectedClientName, setSelectedClientName] = useState<string | null>(null);
+  const [overdueOnly, setOverdueOnly]               = useState(false);
+  const [acceptanceFrom, setAcceptanceFrom]         = useState('');
+  const [acceptanceTo, setAcceptanceTo]             = useState('');
+  const [deadlineFrom, setDeadlineFrom]             = useState('');
+  const [deadlineTo, setDeadlineTo]                 = useState('');
   const [viewMode, setViewMode]                     = useState<'board' | 'list' | 'timeline'>('board');
   const [addTaskOpen, setAddTaskOpen]               = useState(false);
   const [panelOpen, setPanelOpen]                   = useState(false);
@@ -41,15 +72,12 @@ export default function TasksPage() {
     staleTime: 5 * 60_000,
   });
 
-  const { data: clientsData = [] } = useQuery({
-    queryKey: ['clients'],
-    queryFn:  clientService.getAll,
-    staleTime: 60_000,
-  });
-
+  // Director + board view fetches lazily, per column/page, straight from TaskBoard —
+  // no need to eagerly pull the whole company task list for that case.
   const { data: tasksResponse, refetch: refetchTasks, isLoading: tasksLoading } = useQuery<TaskListResponse>({
     queryKey: isEmployee ? ['tasks', 'my'] : ['tasks', 'all'],
     queryFn:  isEmployee ? taskService.getMyTasks : taskService.getAll,
+    enabled:  isEmployee || viewMode !== 'board',
   });
   const tasksData = tasksResponse?.results ?? [];
 
@@ -61,12 +89,6 @@ export default function TasksPage() {
   }
 
   const employees = employeesData?.data ?? [];
-
-  const panelClients = useMemo(() => clientsData.map((c) => ({
-    id:    c.id,
-    name:  `${c.first_name} ${c.last_name}`.trim(),
-    phone: c.phone || undefined,
-  })), [clientsData]);
 
   const sidebarAssignees = useMemo(() => employees.map((emp) => ({
     id:       emp.id,
@@ -80,11 +102,6 @@ export default function TasksPage() {
     () => employees.find((e) => e.id === selectedEmployeeId),
     [employees, selectedEmployeeId],
   );
-  const selectedClient = useMemo(
-    () => panelClients.find((c) => c.id === selectedClientId),
-    [panelClients, selectedClientId],
-  );
-
   const roleEmployeeIds = useMemo(() => filterRole
     ? new Set(sidebarAssignees.filter((a) => a.role === filterRole).map((a) => String(a.id)).filter(Boolean))
     : null,
@@ -95,6 +112,7 @@ export default function TasksPage() {
     const emp = employees.find((e) => e.name === name);
     setSelectedEmployeeId(emp?.id ?? null);
     setSelectedClientId(null);
+    setSelectedClientName(null);
     setPanelOpen(false);
   }, [employees]);
 
@@ -103,28 +121,39 @@ export default function TasksPage() {
     setSelectedEmployeeId(null);
   }, []);
 
-  const handleSelectClient = useCallback((id: number | null) => {
+  const handleSelectClient = useCallback((id: number | null, name?: string) => {
     setSelectedClientId(id);
+    setSelectedClientName(id ? (name ?? null) : null);
     if (id) { setSelectedEmployeeId(null); setFilterRole(null); }
     setPanelOpen(false);
   }, []);
 
-  // Precompute selected client fields once — avoids O(N) find() inside per-task filter
+  // Precompute selected client fields once — avoids O(N) find() inside per-task filter.
+  // Derived straight from the panel's selection (id + display name) since we no longer
+  // keep a full eagerly-fetched client list around.
   const selectedClientMeta = useMemo(() => {
-    if (!selectedClientId) return null;
-    const sel = clientsData.find((c) => c.id === selectedClientId);
-    if (!sel) return null;
+    if (!selectedClientId || !selectedClientName) return null;
+    const parts = selectedClientName.trim().split(/\s+/);
     return {
-      id:        sel.id,
-      firstName: sel.first_name.trim().toLowerCase(),
-      lastName:  (sel.last_name ?? '').trim().toLowerCase(),
-      fullName:  [sel.first_name.trim(), sel.last_name?.trim()].filter(Boolean).join(' ').toLowerCase(),
+      id:        selectedClientId,
+      firstName: (parts[0] ?? '').toLowerCase(),
+      lastName:  parts.slice(1).join(' ').toLowerCase(),
+      fullName:  selectedClientName.trim().toLowerCase(),
     };
-  }, [selectedClientId, clientsData]);
+  }, [selectedClientId, selectedClientName]);
 
   const boardTasks: Task[] = useMemo(() => tasksData
     .filter((t) => t.section === 'active')
     .filter((t) => !(t as unknown as { deliveryConfirmed?: boolean }).deliveryConfirmed)
+    .filter((t) => !overdueOnly || isOverdue(t.deadline))
+    .filter((t) => inDateRange(t.acceptanceDate, acceptanceFrom, acceptanceTo))
+    .filter((t) => inDateRange(t.deadline, deadlineFrom, deadlineTo))
+    .filter((t) => {
+      if (!taskSearch.trim()) return true;
+      const q = taskSearch.trim().toLowerCase();
+      return [t.name, t.taskId, t.client, t.clientLinkName, t.phone]
+        .some((v) => (v ?? '').toString().toLowerCase().includes(q));
+    })
     .filter((t) => {
       if (selectedClientMeta) {
         const { firstName, lastName, fullName } = selectedClientMeta;
@@ -162,7 +191,21 @@ export default function TasksPage() {
       section: (t.section ?? 'active') as Task['section'],
       status:  (t.statusId !== undefined ? String(t.statusId) : t.status) as Task['status'],
     })),
-  [tasksData, selectedClientMeta, selectedClientId, selectedEmployeeId, roleEmployeeIds]);
+  [tasksData, selectedClientMeta, selectedClientId, selectedEmployeeId, roleEmployeeIds, overdueOnly, acceptanceFrom, acceptanceTo, deadlineFrom, deadlineTo, taskSearch]);
+
+  // Filter criteria for the director board's own lazy per-column fetching —
+  // pushed straight to the backend instead of filtering an eagerly-fetched list.
+  const boardFilters = useMemo(() => ({
+    assigneeId:      selectedEmployeeId ?? undefined,
+    clientId:        selectedClientId ?? undefined,
+    search:          taskSearch.trim() || undefined,
+    deadlineFrom:    deadlineFrom || undefined,
+    deadlineTo:      deadlineTo || undefined,
+    overdueOnly,
+    roleEmployeeIds: selectedEmployeeId ? null : roleEmployeeIds,
+    acceptanceFrom:  acceptanceFrom || undefined,
+    acceptanceTo:    acceptanceTo || undefined,
+  }), [selectedEmployeeId, selectedClientId, taskSearch, deadlineFrom, deadlineTo, overdueOnly, roleEmployeeIds, acceptanceFrom, acceptanceTo]);
 
   return (
     <div className="animate-fade-in absolute inset-0 flex overflow-hidden bg-light md:p-4 md:gap-4">
@@ -188,9 +231,19 @@ export default function TasksPage() {
           onSelectEmployee={handleSelectEmployee}
           selectedRole={filterRole ?? 'Բոլոր'}
           onSelectRole={handleSelectRole}
-          clients={panelClients}
           selectedClientId={selectedClientId}
+          selectedClientName={selectedClientName}
           onSelectClient={handleSelectClient}
+          overdueOnly={overdueOnly}
+          onToggleOverdue={() => setOverdueOnly((v) => !v)}
+          acceptanceFrom={acceptanceFrom}
+          acceptanceTo={acceptanceTo}
+          onChangeAcceptanceFrom={setAcceptanceFrom}
+          onChangeAcceptanceTo={setAcceptanceTo}
+          deadlineFrom={deadlineFrom}
+          deadlineTo={deadlineTo}
+          onChangeDeadlineFrom={setDeadlineFrom}
+          onChangeDeadlineTo={setDeadlineTo}
         />
       </div>}
 
@@ -240,9 +293,49 @@ export default function TasksPage() {
             )}
           </div>
 
+          {/* Search */}
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input
+              value={taskSearch}
+              onChange={(e) => setTaskSearch(e.target.value)}
+              placeholder="Որոնել պատվերի անունով, ID-ով, հաճախորդով..."
+              className="w-full pl-10 pr-9 py-2.5 text-sm rounded-xl border border-crm-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            {taskSearch && (
+              <button
+                onClick={() => setTaskSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-dark text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
           {/* Row 2: active filter chips (only when any active) */}
-          {(filterRole || selectedEmployee || selectedClient) && (
+          {(filterRole || selectedEmployee || selectedClientId || overdueOnly ||
+            acceptanceFrom || acceptanceTo || deadlineFrom || deadlineTo) && (
             <div className="flex flex-wrap items-center gap-1.5">
+              {overdueOnly && (
+                <span className="flex items-center gap-1 px-2.5 py-0.5 bg-error/10 text-error text-xs font-semibold rounded-full border border-error/20">
+                  Ժամկետանց
+                  <button onClick={() => setOverdueOnly(false)} className="hover:opacity-70">✕</button>
+                </span>
+              )}
+              {(acceptanceFrom || acceptanceTo) && (
+                <span className="flex items-center gap-1 px-2.5 py-0.5 bg-primary/10 text-primary text-xs font-semibold rounded-full border border-primary/20">
+                  Ընդունում. {acceptanceFrom || '…'} – {acceptanceTo || '…'}
+                  <button onClick={() => { setAcceptanceFrom(''); setAcceptanceTo(''); }} className="hover:opacity-70">✕</button>
+                </span>
+              )}
+              {(deadlineFrom || deadlineTo) && (
+                <span className="flex items-center gap-1 px-2.5 py-0.5 bg-primary/10 text-primary text-xs font-semibold rounded-full border border-primary/20">
+                  Ժամկետ. {deadlineFrom || '…'} – {deadlineTo || '…'}
+                  <button onClick={() => { setDeadlineFrom(''); setDeadlineTo(''); }} className="hover:opacity-70">✕</button>
+                </span>
+              )}
               {filterRole && (
                 <span className="flex items-center gap-1 px-2.5 py-0.5 bg-primary/10 text-primary text-xs font-semibold rounded-full border border-primary/20">
                   {filterRole}
@@ -255,10 +348,10 @@ export default function TasksPage() {
                   <button onClick={() => setSelectedEmployeeId(null)} className="hover:opacity-70">✕</button>
                 </span>
               )}
-              {selectedClient && (
+              {selectedClientId && (
                 <span className="flex items-center gap-1 px-2.5 py-0.5 bg-primary/10 text-primary text-xs font-semibold rounded-full border border-primary/20">
-                  {selectedClient.name}
-                  <button onClick={() => setSelectedClientId(null)} className="hover:opacity-70">✕</button>
+                  {selectedClientName ?? ''}
+                  <button onClick={() => { setSelectedClientId(null); setSelectedClientName(null); }} className="hover:opacity-70">✕</button>
                 </span>
               )}
             </div>
@@ -266,7 +359,7 @@ export default function TasksPage() {
         </div>
 
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          {viewMode === 'board'    && <TaskBoard    tasks={boardTasks} />}
+          {viewMode === 'board'    && <TaskBoard    tasks={boardTasks} isLoading={tasksLoading} filters={boardFilters} />}
           {viewMode === 'list'     && <TaskList     tasks={boardTasks} />}
           {viewMode === 'timeline' && (
             <div className="flex-1 overflow-auto px-3 md:px-6 pt-4 pb-4">

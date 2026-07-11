@@ -1,4 +1,4 @@
-﻿import { request, BASE_URL } from '@/lib/api';
+﻿import { request, BASE_URL, fetchAllPages } from '@/lib/api';
 import type { TaskStatus, TaskPriority } from '@/features/projects/types';
 
 export interface PaymentDTO {
@@ -295,8 +295,40 @@ export const taskService = {
     return request<DashboardDTO>('/tasks/dashboard/', { method: 'GET' });
   },
 
+  // The board/list/timeline views all expect "every active task" — the backend
+  // paginates `/tasks/` (~25/page), so follow `next` to collect them all instead
+  // of silently only ever showing page 1.
   async getAll(): Promise<TaskListResponse> {
-    const res = await request<TaskListResponse | TaskDTO[]>('/tasks/', { method: 'GET' });
+    const results = await fetchAllPages<TaskDTO>('/tasks/');
+    return { count: results.length, next: null, previous: null, results };
+  },
+
+  // Fetches exactly one status column's one page — used by the kanban board so it
+  // only ever asks the backend for what's actually on screen right now, instead
+  // of pulling the whole company task list up front.
+  async getBoardPage(params: {
+    statusId: string | number;
+    page: number;
+    pageSize?: number;
+    assignee?: string | number;
+    clientLink?: number;
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    overdue?: boolean;
+  }): Promise<TaskListResponse> {
+    const qs = new URLSearchParams();
+    qs.set('status', String(params.statusId));
+    qs.set('page', String(params.page));
+    qs.set('section', 'active');
+    if (params.pageSize)   qs.set('page_size', String(params.pageSize));
+    if (params.assignee)   qs.set('assignee', String(params.assignee));
+    if (params.clientLink) qs.set('client_link', String(params.clientLink));
+    if (params.search)     qs.set('search', params.search);
+    if (params.dateFrom)   qs.set('date_from', params.dateFrom);
+    if (params.dateTo)     qs.set('date_to', params.dateTo);
+    if (params.overdue)    qs.set('overdue', 'true');
+    const res = await request<TaskListResponse | TaskDTO[]>(`/tasks/?${qs.toString()}`, { method: 'GET' });
     return normalizeTaskList(res);
   },
 
@@ -316,8 +348,18 @@ export const taskService = {
   },
 
   async getMyTasks(): Promise<TaskListResponse> {
-    const res = await request<TaskListResponse | TaskDTO[]>('/tasks/my-tasks/', { method: 'GET' });
-    return normalizeTaskList(res);
+    const results = await fetchAllPages<TaskDTO>('/tasks/my-tasks/');
+    return { count: results.length, next: null, previous: null, results };
+  },
+
+  // Used by the calendar — scopes the fetch to tasks whose deadline falls within the
+  // visible month grid instead of pulling the company's entire task history.
+  async getByDeadlineRange(dateFrom: string, dateTo: string): Promise<TaskListResponse> {
+    const qs = new URLSearchParams();
+    qs.set('date_from', dateFrom);
+    qs.set('date_to', dateTo);
+    const results = await fetchAllPages<TaskDTO>(`/tasks/?${qs.toString()}`);
+    return { count: results.length, next: null, previous: null, results };
   },
 
   getById(id: string) {

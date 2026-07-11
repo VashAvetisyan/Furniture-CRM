@@ -14,6 +14,14 @@ function daysLeft(deadline: string): number {
   return Math.ceil(diff / 86400000);
 }
 
+function fmtDeadline(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('hy-AM', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch {
+    return iso;
+  }
+}
+
 const PRIORITY_LABELS: Record<string, string> = {
   High: 'Բարձր', Medium: 'Միջին', Low: 'Ցածր',
 };
@@ -71,7 +79,7 @@ export default function UpcomingDeadlines({
                       </>
                     )}
                     <span className={`text-[11px] sm:text-xs font-medium ${urgent ? 'text-error' : 'text-text-muted'}`}>
-                      {task.deadline}
+                      {fmtDeadline(task.deadline)}
                     </span>
                   </div>
                 </div>

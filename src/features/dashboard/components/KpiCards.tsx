@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import type { DashboardDTO } from '@/services/task.service';
 import { SkStatCard } from '@/components/ui/Skeleton';
 
@@ -30,6 +31,7 @@ export default function KpiCards({
     {
       label: 'Ակտիվ պատվերներ',
       value: String(dashboard?.total_active_tasks ?? placeholder),
+      href: '/tasks',
       bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/20',
       icon: (
         <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -42,6 +44,7 @@ export default function KpiCards({
     {
       label: 'Ժամկետանց',
       value: String(dashboard?.overdue_tasks ?? placeholder),
+      href: '/tasks',
       bg: 'bg-error/10', text: 'text-error', border: 'border-error/20',
       icon: (
         <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -53,6 +56,7 @@ export default function KpiCards({
     {
       label: 'Այսօրվա զանգեր',
       value: String(dashboard?.upcoming_calls_today ?? placeholder),
+      href: '/calls',
       bg: 'bg-warning/10', text: 'text-warning', border: 'border-warning/20',
       icon: (
         <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -63,6 +67,7 @@ export default function KpiCards({
     {
       label: 'Ամսի եկամուտ',
       value: dashboard ? `${fmt(dashboard.revenue_this_month).toLocaleString()} ֏` : placeholder,
+      href: '/finance',
       bg: 'bg-success/10', text: 'text-success', border: 'border-success/20',
       icon: (
         <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -76,9 +81,10 @@ export default function KpiCards({
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
       {cards.map((card) => (
-        <div
+        <Link
           key={card.label}
-          className={`bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-5 shadow-sm border ${card.border} flex items-center gap-2 sm:gap-3 md:gap-4`}
+          href={card.href}
+          className={`bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-5 shadow-sm border ${card.border} flex items-center gap-2 sm:gap-3 md:gap-4 hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer`}
         >
           <div className={`w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-lg sm:rounded-xl ${card.bg} ${card.text} flex items-center justify-center flex-shrink-0`}>
             <span className="[&>svg]:w-4 [&>svg]:h-4 sm:[&>svg]:w-5 sm:[&>svg]:h-5 md:[&>svg]:w-6 md:[&>svg]:h-6">
@@ -89,7 +95,7 @@ export default function KpiCards({
             <p className={`text-lg sm:text-xl md:text-2xl font-bold ${card.text} leading-tight`}>{card.value}</p>
             <p className="text-[10px] sm:text-xs text-text-muted mt-0.5 leading-snug">{card.label}</p>
           </div>
-        </div>
+        </Link>
       ))}
     </div>
   );

@@ -37,11 +37,143 @@ function formatPrice(val?: string): string {
 }
 
 const COLS = '2.4fr 160px 110px 140px 130px';
+const PAGE_SIZE = 30;
+
+function ChevronLeftIcon() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  );
+}
+
+function Pagination({
+  page, total, pageSize, onPrev, onNext,
+}: {
+  page: number; total: number; pageSize: number; onPrev: () => void; onNext: () => void;
+}) {
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+  const hasNext = to < total;
+  const hasPrev = page > 1;
+
+  return (
+    <div className="flex items-center justify-end gap-3 py-3 flex-shrink-0">
+      <span className="text-sm text-text-muted">{from}–{to} / {total}</span>
+      <button
+        onClick={onPrev}
+        disabled={!hasPrev}
+        className="p-1.5 rounded-lg border border-crm-border bg-white hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-text-muted hover:text-dark"
+      >
+        <ChevronLeftIcon />
+      </button>
+      <button
+        onClick={onNext}
+        disabled={!hasNext}
+        className="p-1.5 rounded-lg border border-crm-border bg-white hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-text-muted hover:text-dark"
+      >
+        <ChevronRightIcon />
+      </button>
+    </div>
+  );
+}
 
 interface StatusOption {
   id: string;
   name: string;
   colorClass: string;
+}
+
+// ── Header filter dropdown (Կատարող / Կարգավիճակ) ────────────────────────────
+
+function HeaderDropdown({
+  label, options, selected, onSelect,
+}: {
+  label: string;
+  options: { id: string; name: string }[];
+  selected: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
+
+  const selectedLabel = selected ? options.find((o) => o.id === selected)?.name : null;
+
+  return (
+    <div ref={ref} className="relative normal-case">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide transition-colors max-w-full ${
+          selected ? 'text-primary' : 'text-text-muted hover:text-dark'
+        }`}
+      >
+        <span className="truncate">{selectedLabel ?? label}</span>
+        <svg className={`w-3 h-3 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 9l6 6 6-6"/>
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 w-44 bg-white rounded-xl border border-crm-border shadow-xl z-50 py-1 max-h-56 overflow-y-auto">
+          <button
+            onClick={() => { onSelect(null); setOpen(false); }}
+            className={`w-full text-left px-3 py-1.5 text-xs transition-colors ${!selected ? 'text-primary font-semibold bg-primary-light' : 'text-dark hover:bg-gray-50'}`}
+          >
+            Բոլորը
+          </button>
+          {options.map((o) => (
+            <button
+              key={o.id}
+              onClick={() => { onSelect(o.id); setOpen(false); }}
+              className={`w-full text-left px-3 py-1.5 text-xs truncate transition-colors ${selected === o.id ? 'text-primary font-semibold bg-primary-light' : 'text-dark hover:bg-gray-50'}`}
+            >
+              {o.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Header sort button (Ժամկետ / Արժեք) ───────────────────────────────────────
+
+function HeaderSortButton({
+  label, active, dir, onClick,
+}: {
+  label: string; active: boolean; dir: 'asc' | 'desc'; onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide transition-colors ${
+        active ? 'text-primary' : 'text-text-muted hover:text-dark'
+      }`}
+    >
+      {label}
+      <svg
+        className={`w-3 h-3 flex-shrink-0 transition-transform ${active && dir === 'desc' ? 'rotate-180' : ''} ${active ? 'opacity-100' : 'opacity-30'}`}
+        viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+      >
+        <path d="M12 19V5M5 12l7-7 7 7"/>
+      </svg>
+    </button>
+  );
 }
 
 // ── Inline status dropdown ────────────────────────────────────────────────────
@@ -329,7 +461,14 @@ interface TaskListProps {
 
 export default function TaskList({ tasks, projectName }: TaskListProps) {
   const [openTask, setOpenTask] = useState<Task | null>(null);
+  const [page, setPage] = useState(1);
+  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter]     = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<'deadline' | 'price' | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const queryClient = useQueryClient();
+
+  useEffect(() => { setPage(1); }, [tasks, assigneeFilter, statusFilter, sortKey, sortDir]);
 
   const { data: statusData } = useQuery({
     queryKey: ['task-statuses'],
@@ -345,6 +484,35 @@ export default function TaskList({ tasks, projectName }: TaskListProps) {
     allStatuses.push({ id: String(s.id), name: s.name, colorClass });
   });
 
+  const assigneeOptions = Array.from(new Set(
+    tasks.flatMap((t) => t.assignees?.length ? t.assignees.map((a) => a.name) : [t.assigneeName].filter(Boolean) as string[])
+  )).sort().map((name) => ({ id: name, name }));
+
+  function toggleSort(key: 'deadline' | 'price') {
+    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); }
+    else if (sortDir === 'asc') { setSortDir('desc'); }
+    else { setSortKey(null); }
+  }
+
+  const filteredTasks = tasks
+    .filter((t) => !assigneeFilter || (t.assignees?.length
+      ? t.assignees.some((a) => a.name === assigneeFilter)
+      : t.assigneeName === assigneeFilter))
+    .filter((t) => !statusFilter || String(t.status) === statusFilter);
+
+  const sortedTasks = sortKey ? [...filteredTasks].sort((a, b) => {
+    const val = (t: Task) => sortKey === 'deadline'
+      ? (t.deadline ? new Date(t.deadline).getTime() : null)
+      : (t.price ? parseFloat(t.price) : null);
+    const av = val(a), bv = val(b);
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    return sortDir === 'asc' ? av - bv : bv - av;
+  }) : filteredTasks;
+
+  const paged = sortedTasks.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   // Invalidate tasks cache after any status change so board view stays in sync
   useMutation({
     mutationFn: ({ id, statusId }: { id: string; statusId: number }) =>
@@ -357,32 +525,48 @@ export default function TaskList({ tasks, projectName }: TaskListProps) {
       <div className="overflow-y-auto md:overflow-x-auto px-3 md:px-6 pt-2 pb-4 flex-1">
         {tasks.length === 0 ? (
           <div className="flex items-center justify-center h-48 text-text-muted text-sm">
-            Պատverernеr չkаn
+            Պատվերներ չկան
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-crm-border shadow-sm">
             {/* Desktop header — hidden on mobile */}
             <div
-              className="hidden md:grid gap-3 px-4 py-2.5 bg-gray-50/80 border-b border-crm-border rounded-t-2xl"
+              className="hidden md:grid items-center gap-3 px-4 py-2.5 bg-gray-50/80 border-b border-crm-border rounded-t-2xl"
               style={{ gridTemplateColumns: COLS }}
             >
               <span className="text-[11px] font-bold text-text-muted uppercase tracking-wide">Անուն / Հաճ.</span>
-              <span className="text-[11px] font-bold text-text-muted uppercase tracking-wide">Կատարող</span>
-              <span className="text-[11px] font-bold text-text-muted uppercase tracking-wide">Ժամկետ</span>
-              <span className="text-[11px] font-bold text-text-muted uppercase tracking-wide">Արժեք</span>
-              <span className="text-[11px] font-bold text-text-muted uppercase tracking-wide">Կարգ.</span>
+              <HeaderDropdown label="Կատարող" options={assigneeOptions} selected={assigneeFilter} onSelect={setAssigneeFilter} />
+              <HeaderSortButton label="Ժամկետ" active={sortKey === 'deadline'} dir={sortDir} onClick={() => toggleSort('deadline')} />
+              <HeaderSortButton label="Արժեք" active={sortKey === 'price'} dir={sortDir} onClick={() => toggleSort('price')} />
+              <HeaderDropdown label="Կարգ." options={allStatuses} selected={statusFilter} onSelect={setStatusFilter} />
             </div>
 
-            {tasks.map((task) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                statusMap={statusMap}
-                allStatuses={allStatuses}
-                onOpen={setOpenTask}
-              />
-            ))}
+            {sortedTasks.length === 0 ? (
+              <div className="flex items-center justify-center h-32 text-text-muted text-sm">
+                Այս ֆիլտրով պատվերներ չկան
+              </div>
+            ) : (
+              paged.map((task) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  statusMap={statusMap}
+                  allStatuses={allStatuses}
+                  onOpen={setOpenTask}
+                />
+              ))
+            )}
           </div>
+        )}
+
+        {sortedTasks.length > 0 && (
+          <Pagination
+            page={page}
+            total={sortedTasks.length}
+            pageSize={PAGE_SIZE}
+            onPrev={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => p + 1)}
+          />
         )}
       </div>
 

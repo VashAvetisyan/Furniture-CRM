@@ -140,8 +140,8 @@ function TransferModal({ onClose, editing }: { onClose: () => void; editing?: Tr
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[400px] mx-4 flex flex-col" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/30 backdrop-blur-sm overflow-y-auto py-6" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[400px] mx-4 my-auto flex flex-col max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-crm-border">
           <h2 className="text-base font-bold text-dark">{editing ? 'Փոխել' : 'Նոր Տրանսֆեր'}</h2>
           <button onClick={onClose} className="text-text-muted hover:text-dark">
@@ -273,8 +273,8 @@ function AddModal({ onClose, customCategories }: { onClose: () => void; customCa
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[420px] mx-4 flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/30 backdrop-blur-sm overflow-y-auto py-6">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[420px] mx-4 my-auto flex flex-col max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-crm-border">
           <h2 className="text-base font-bold text-dark">Ավելացնել գործարքում</h2>
           <button onClick={onClose} className="text-text-muted hover:text-dark">
@@ -542,25 +542,25 @@ export default function FinancePage() {
   }
 
   return (
-    <div className="animate-fade-in absolute inset-0 flex flex-col p-4 overflow-hidden">
+    <div className="animate-fade-in absolute inset-0 flex flex-col p-4 overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 sm:mb-5 flex-shrink-0 flex-wrap gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-5 flex-shrink-0">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-dark">Մուտք / Ելք</h1>
           <p className="text-xs text-text-muted mt-0.5">{txData?.count ?? 0} Գործարք</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Main tab switcher */}
           <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
             <button
               onClick={() => setMainTab('transactions')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${mainTab === 'transactions' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all ${mainTab === 'transactions' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
             >
               Գործարքումներ
             </button>
             <button
               onClick={() => setMainTab('transfers')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${mainTab === 'transfers' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all ${mainTab === 'transfers' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
             >
               ⇄ Տրանսֆերներ
             </button>
@@ -570,29 +570,29 @@ export default function FinancePage() {
             <button
               onClick={() => handleExport('xlsx')}
               disabled={isExporting}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl border border-crm-border text-text-muted hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl border border-crm-border text-text-muted hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
                 <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
               </svg>
-              {isExporting ? 'Բеrnum...' : 'Excel'}
+              <span className="hidden sm:inline">{isExporting ? 'Բեռնում...' : 'Excel'}</span>
             </button>
           )}
           <button
             onClick={() => mainTab === 'transfers' ? setTransferOpen(true) : setAddOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-primary hover:bg-primary-hover text-white text-sm font-semibold rounded-xl transition-colors shadow-sm flex-shrink-0"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
-            Ավելացնել
+            <span className="hidden sm:inline">Ավելացնել</span>
           </button>
         </div>
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-5 flex-shrink-0">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-5 flex-shrink-0">
         {/* In */}
         <div className="bg-white rounded-2xl border border-crm-border p-3 sm:p-4 flex flex-col gap-2">
           <div className="flex items-center gap-2">
@@ -602,24 +602,24 @@ export default function FinancePage() {
               </svg>
             </div>
             <div>
-              <p className="text-[10px] sm:text-xs text-text-muted leading-none">Մուտք</p>
-              <p className="text-xs sm:text-lg font-bold text-success leading-tight">{fmt(totalIn)}</p>
+              <p className="text-xs text-text-muted leading-none">Մուտք</p>
+              <p className="text-base sm:text-lg font-bold text-success leading-tight">{fmt(totalIn)}</p>
             </div>
           </div>
           <div className="border-t border-crm-border pt-2 flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1 text-[10px] sm:text-xs text-blue-600 font-medium">
+              <span className="flex items-center gap-1 text-xs text-blue-600 font-medium">
                 <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                 Քարտով
               </span>
-              <span className="text-[10px] sm:text-xs font-semibold text-blue-700">{fmt(pmBreakdown.cardIn)}</span>
+              <span className="text-xs font-semibold text-blue-700">{fmt(pmBreakdown.cardIn)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1 text-[10px] sm:text-xs text-amber-600 font-medium">
+              <span className="flex items-center gap-1 text-xs text-amber-600 font-medium">
                 <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
                 Կանխիկ
               </span>
-              <span className="text-[10px] sm:text-xs font-semibold text-amber-700">{fmt(pmBreakdown.cashIn)}</span>
+              <span className="text-xs font-semibold text-amber-700">{fmt(pmBreakdown.cashIn)}</span>
             </div>
           </div>
         </div>
@@ -633,24 +633,24 @@ export default function FinancePage() {
               </svg>
             </div>
             <div>
-              <p className="text-[10px] sm:text-xs text-text-muted leading-none">Ելք</p>
-              <p className="text-xs sm:text-lg font-bold text-error leading-tight">{fmt(totalOut)}</p>
+              <p className="text-xs text-text-muted leading-none">Ելք</p>
+              <p className="text-base sm:text-lg font-bold text-error leading-tight">{fmt(totalOut)}</p>
             </div>
           </div>
           <div className="border-t border-crm-border pt-2 flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1 text-[10px] sm:text-xs text-blue-600 font-medium">
+              <span className="flex items-center gap-1 text-xs text-blue-600 font-medium">
                 <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                 Քարտով
               </span>
-              <span className="text-[10px] sm:text-xs font-semibold text-blue-700">{fmt(pmBreakdown.cardOut)}</span>
+              <span className="text-xs font-semibold text-blue-700">{fmt(pmBreakdown.cardOut)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1 text-[10px] sm:text-xs text-amber-600 font-medium">
+              <span className="flex items-center gap-1 text-xs text-amber-600 font-medium">
                 <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
                 Կանխիկ
               </span>
-              <span className="text-[10px] sm:text-xs font-semibold text-amber-700">{fmt(pmBreakdown.cashOut)}</span>
+              <span className="text-xs font-semibold text-amber-700">{fmt(pmBreakdown.cashOut)}</span>
             </div>
           </div>
         </div>
@@ -666,26 +666,26 @@ export default function FinancePage() {
               </svg>
             </div>
             <div>
-              <p className="text-[10px] sm:text-xs text-text-muted leading-none">Մնացորդ</p>
-              <p className={`text-xs sm:text-lg font-bold leading-tight ${balance >= 0 ? 'text-primary' : 'text-warning'}`}>{fmt(Math.abs(balance))}</p>
+              <p className="text-xs text-text-muted leading-none">Մնացորդ</p>
+              <p className={`text-base sm:text-lg font-bold leading-tight ${balance >= 0 ? 'text-primary' : 'text-warning'}`}>{fmt(Math.abs(balance))}</p>
             </div>
           </div>
           <div className="border-t border-crm-border pt-2 flex flex-col gap-1">
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1 text-[10px] sm:text-xs text-blue-600 font-medium">
+              <span className="flex items-center gap-1 text-xs text-blue-600 font-medium">
                 <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                 Քարտով
               </span>
-              <span className={`text-[10px] sm:text-xs font-semibold ${pmBreakdown.cardIn - pmBreakdown.cardOut >= 0 ? 'text-blue-700' : 'text-error'}`}>
+              <span className={`text-xs font-semibold ${pmBreakdown.cardIn - pmBreakdown.cardOut >= 0 ? 'text-blue-700' : 'text-error'}`}>
                 {pmBreakdown.cardIn - pmBreakdown.cardOut >= 0 ? '' : '−'}{fmt(Math.abs(pmBreakdown.cardIn - pmBreakdown.cardOut))}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1 text-[10px] sm:text-xs text-amber-600 font-medium">
+              <span className="flex items-center gap-1 text-xs text-amber-600 font-medium">
                 <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
                 Կանխիկ
               </span>
-              <span className={`text-[10px] sm:text-xs font-semibold ${pmBreakdown.cashIn - pmBreakdown.cashOut >= 0 ? 'text-amber-700' : 'text-error'}`}>
+              <span className={`text-xs font-semibold ${pmBreakdown.cashIn - pmBreakdown.cashOut >= 0 ? 'text-amber-700' : 'text-error'}`}>
                 {pmBreakdown.cashIn - pmBreakdown.cashOut >= 0 ? '' : '−'}{fmt(Math.abs(pmBreakdown.cashIn - pmBreakdown.cashOut))}
               </span>
             </div>
@@ -796,16 +796,16 @@ export default function FinancePage() {
 
       {/* Transfers list */}
       {mainTab === 'transfers' && (
-        <div className="flex-1 overflow-auto min-h-0">
+        <div className="flex-1 min-h-[420px]">
           {/* Date filter row for transfers */}
-          <div className="flex items-center gap-2 mb-4 flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-2 mb-4 flex-shrink-0">
             <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-              className="px-3 py-2 text-sm rounded-xl border border-crm-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            <span className="text-text-muted text-sm">—</span>
+              className="flex-1 sm:flex-none min-w-0 px-3 py-2 text-sm rounded-xl border border-crm-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30" />
+            <span className="text-text-muted text-sm flex-shrink-0">—</span>
             <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-              className="px-3 py-2 text-sm rounded-xl border border-crm-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              className="flex-1 sm:flex-none min-w-0 px-3 py-2 text-sm rounded-xl border border-crm-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30" />
             {(dateFrom || dateTo) && (
-              <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="p-1.5 text-text-muted hover:text-error transition-colors">
+              <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="flex-shrink-0 p-1.5 text-text-muted hover:text-error transition-colors">
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
@@ -873,7 +873,7 @@ export default function FinancePage() {
       )}
 
       {/* Transactions list */}
-      {mainTab === 'transactions' && <div className="flex-1 overflow-auto min-h-0">
+      {mainTab === 'transactions' && <div className="flex-1 min-h-[420px]">
         {isLoading ? (
           <div className="flex items-center justify-center h-48 text-text-muted text-sm">Բերնվում ե...</div>
         ) : transactions.length === 0 ? (
@@ -901,7 +901,14 @@ export default function FinancePage() {
                       {tx.custom_category_name ?? CATEGORY_LABELS[tx.category] ?? tx.category}
                     </p>
                     {tx.description && <p className="text-xs text-text-muted truncate">{tx.description}</p>}
-                    <p className="text-[11px] text-text-muted mt-0.5">{fmtDate(tx.transaction_date)}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <p className="text-[11px] text-text-muted">{fmtDate(tx.transaction_date)}</p>
+                      {tx.payment_method && (
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0 ${tx.payment_method === 'card' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {tx.payment_method === 'card' ? 'Քարտով' : 'Կանխիկ'}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex-shrink-0 flex items-center gap-1.5">
                     <span className={`text-sm font-bold ${tx.direction === 'in' ? 'text-success' : 'text-error'}`}>

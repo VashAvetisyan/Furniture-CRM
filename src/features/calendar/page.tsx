@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, type CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { taskService } from '@/services/task.service';
 import { clientService } from '@/services/client.service';
@@ -116,6 +116,10 @@ function buildGrid(year: number, month: number): CalCell[][] {
   return weeks;
 }
 
+function cellToISO(cell: CalCell): string {
+  return `${cell.year}-${String(cell.month + 1).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}`;
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function TrendArrow({ direction }: { direction: 'up' | 'down' }) {
@@ -141,24 +145,46 @@ function TrendArrow({ direction }: { direction: 'up' | 'down' }) {
   );
 }
 
+function TaskTypeIcon({ className, style }: { className?: string; style?: CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 11l3 3L22 4" />
+      <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+    </svg>
+  );
+}
+
+function CallTypeIcon({ className, style }: { className?: string; style?: CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.92 1.18 2 2 0 012.92 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.84a16 16 0 006.29 6.29l1.2-1.2a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+    </svg>
+  );
+}
+
 function EventCard({ event, onOpen }: { event: CalendarEvent; onOpen?: () => void }) {
   const isTask = event.id.startsWith('task_ev_');
   return (
     <div
       onClick={onOpen}
-      className={`flex items-stretch rounded-lg overflow-hidden border border-crm-border bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] ${isTask ? 'cursor-pointer hover:border-primary/40 hover:shadow-md transition-all' : ''}`}
+      className={`flex items-stretch rounded-lg overflow-hidden border border-crm-border bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)] ${onOpen ? 'cursor-pointer hover:border-primary/40 hover:shadow-md transition-all' : ''}`}
     >
       <div className="w-[6px] flex-shrink-0" style={{ backgroundColor: event.color }} />
-      <div className="flex-1 px-2 py-1.5 min-w-0">
-        <p className="text-[11px] font-semibold text-dark truncate leading-tight">
-          {event.title}
-        </p>
-        {event.duration && (
-          <div className="flex items-center gap-1 mt-0.5">
-            <span className="text-[11px] text-text-muted">{event.duration}</span>
-            {event.trend && <TrendArrow direction={event.trend} />}
-          </div>
-        )}
+      <div className="flex-1 px-2 py-1.5 min-w-0 flex items-start gap-1">
+        {isTask
+          ? <TaskTypeIcon className="w-3 h-3 mt-0.5 flex-shrink-0 text-text-muted" />
+          : <CallTypeIcon className="w-3 h-3 mt-0.5 flex-shrink-0 text-text-muted" />}
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold text-dark truncate leading-tight">
+            {event.title}
+          </p>
+          {event.duration && (
+            <div className="flex items-center gap-1 mt-0.5">
+              <span className="text-[11px] text-text-muted">{event.duration}</span>
+              {event.trend && <TrendArrow direction={event.trend} />}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -229,8 +255,9 @@ function DayModal({
                   onClick={() => { onOpenTask(event.id); onClose(); }}
                   className="group flex items-center gap-3 p-3.5 rounded-xl border border-crm-border bg-white hover:border-primary/40 hover:shadow-md transition-all cursor-pointer"
                 >
-                  {/* Color dot */}
-                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: event.color || '#6B7280' }} />
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${event.color || '#6B7280'}20` }}>
+                    <TaskTypeIcon className="w-4 h-4" style={{ color: event.color || '#6B7280' }} />
+                  </div>
 
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-dark truncate">{event.title}</p>
@@ -383,15 +410,25 @@ export default function CalendarPage() {
   const [year,  setYear]  = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
 
+  // Grid is pure (year/month only, no data dependency) — compute it up front so the
+  // tasks query can scope its fetch to exactly the visible range instead of the
+  // company's entire task history.
+  const grid = buildGrid(year, month);
+  const rangeFrom = cellToISO(grid[0][0]);
+  const rangeTo   = cellToISO(grid[grid.length - 1][6]);
+
   const { data: tasksResponse } = useQuery({
-    queryKey: ['tasks'],
-    queryFn:  () => taskService.getAll(),
+    queryKey: ['tasks', 'calendar', rangeFrom, rangeTo],
+    queryFn:  () => taskService.getByDeadlineRange(rangeFrom, rangeTo),
   });
   const tasksData = tasksResponse?.results ?? [];
 
+  // No backend date filter exists yet for client calls, so this still pulls every
+  // client — but only once per session thanks to staleTime (not on every month flip).
   const { data: clients = [] } = useQuery({
-    queryKey: ['clients'],
-    queryFn:  clientService.getAll,
+    queryKey:  ['clients'],
+    queryFn:   clientService.getAll,
+    staleTime: 5 * 60_000,
   });
 
   const [openTask,       setOpenTask]       = useState<Task | null>(null);
@@ -428,8 +465,6 @@ export default function CalendarPage() {
 
     return { allEvents: events, taskMap: tMap, clientMap: cMap };
   }, [tasksData, clients]);
-
-  const grid = buildGrid(year, month);
 
   function handleOpenTask(eventId: string) {
     const task = taskMap.get(eventId);
