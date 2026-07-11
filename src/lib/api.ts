@@ -1,4 +1,6 @@
-﻿export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.tmhub.am/api/v1';
+﻿import { useAuthStore } from '@/stores';
+
+export const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.tmhub.am/api/v1';
 
 export function mediaUrl(avatar: string | null | undefined): string | null {
   if (!avatar) return null;
@@ -22,6 +24,10 @@ function redirectToLogin() {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('token');
     localStorage.removeItem('refresh_token');
+    // Keep the persisted auth flag in sync — otherwise a stale isAuthenticated:true
+    // survives the reload below and immediately bounces /login back to /dashboard,
+    // which 401s again with no tokens and calls back into this function forever.
+    useAuthStore.getState().logout();
     window.location.href = '/login';
   }
 }

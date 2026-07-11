@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,7 +15,15 @@ import { ApiError, mediaUrl } from '@/lib/api';
 export default function LoginPage() {
   const router       = useRouter();
   const setUser      = useAuthStore((s) => s.setUser);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const hasHydrated     = useAuthStore((s) => s._hasHydrated);
   const queryClient  = useQueryClient();
+
+  // Landed on /login directly (e.g. a bookmark) while an existing session is
+  // still valid in localStorage — skip the form and go straight to the app.
+  useEffect(() => {
+    if (hasHydrated && isAuthenticated) router.replace('/dashboard');
+  }, [hasHydrated, isAuthenticated, router]);
 
   const { data: brand, isLoading: brandLoading } = useQuery({
     queryKey:  ['brand'],
