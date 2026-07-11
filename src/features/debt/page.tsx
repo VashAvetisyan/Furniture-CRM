@@ -21,18 +21,20 @@ function fmtDate(d?: string) {
 }
 
 function debtClientName(debt: ClientDebtDTO, map: Map<number, ClientDTO>): string {
-  if (typeof debt.client === 'object') {
+  if (typeof debt.client === 'object' && debt.client !== null) {
     return `${debt.client.first_name} ${debt.client.last_name}`.trim();
   }
   if (debt.client_name) return debt.client_name;
-  const c = map.get(debt.client as number);
+  if (debt.client == null) return debt.title ?? '—';
+  const c = map.get(debt.client);
   if (c) return `${c.first_name} ${c.last_name}`.trim();
   return `#${debt.client}`;
 }
 
 function debtClientPhone(debt: ClientDebtDTO, map: Map<number, ClientDTO>): string | undefined {
-  if (typeof debt.client === 'object') return debt.client.phone;
-  return map.get(debt.client as number)?.phone;
+  if (typeof debt.client === 'object' && debt.client !== null) return debt.client.phone;
+  if (debt.client == null) return undefined;
+  return map.get(debt.client)?.phone;
 }
 
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {

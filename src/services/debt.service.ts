@@ -9,7 +9,7 @@ export interface DebtPayment {
 
 export interface ClientDebtDTO {
   id:             number;
-  client:         number | { id: number; first_name: string; last_name: string; phone?: string };
+  client:         number | { id: number; first_name: string; last_name: string; phone?: string } | null;
   client_name?:   string;
   task?:          number | null;
   task_id?:       string;
