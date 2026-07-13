@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { employeeDebtService, type EmployeeDebtDTO, type DebtPayment } from '@/services/debt.service';
 import { employeeService, type EmployeeDTO } from '@/services/employee.service';
 import { financeService } from '@/services/finance.service';
+import { useToastStore } from '@/stores/toast';
 import { toLocalDateTimeInput } from '@/lib/date';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -130,32 +131,36 @@ function AddDebtModal({ employees, onClose }: { employees: EmployeeDTO[]; onClos
   const [err,            setErr]            = useState('');
 
   const { mutate, isPending } = useMutation({
-    mutationFn: async () => {
-      const debt = await employeeDebtService.create({
-        employee: employeeId,
-        title:    title.trim(),
-        amount:   amount.trim(),
-        due_date: dueDate || undefined,
-        notes:    notes.trim() || undefined,
-      });
-      // The advance leaves the company's cash register the moment the debt is
-      // given, so it must show up in Finance right away — not just when it's
-      // repaid (the backend already records repayments as income on its own).
-      const employeeName = employees.find((e) => e.id === employeeId)?.name ?? '';
-      await financeService.create({
-        direction:        'out',
-        category:         'other',
-        amount:           parseFloat(amount.trim()),
-        description:      `Աշխատողի պարտք՝ ${employeeName}${title.trim() ? ' — ' + title.trim() : ''}`,
-        transaction_date: new Date().toISOString(),
-        payment_method:   paymentMethod,
-      });
-      return debt;
-    },
-    onSuccess: () => {
+    mutationFn: () => employeeDebtService.create({
+      employee: employeeId,
+      title:    title.trim(),
+      amount:   amount.trim(),
+      due_date: dueDate || undefined,
+      notes:    notes.trim() || undefined,
+    }),
+    onSuccess: async () => {
       qc.invalidateQueries({ queryKey: ['employee-debts'] });
-      qc.invalidateQueries({ queryKey: ['finance-transactions'] });
-      qc.invalidateQueries({ queryKey: ['finance-summary'] });
+      // The debt itself is already saved at this point — everything below is
+      // best-effort bookkeeping, so a failure here must NOT surface as a
+      // creation error (that would tempt a retry and create a duplicate debt).
+      try {
+        const employeeName = employees.find((e) => e.id === employeeId)?.name ?? '';
+        await financeService.create({
+          direction:        'out',
+          category:         'other',
+          amount:           parseFloat(amount.trim()),
+          description:      `Աշխատողի պարտք՝ ${employeeName}${title.trim() ? ' — ' + title.trim() : ''}`,
+          transaction_date: new Date().toISOString(),
+          payment_method:   paymentMethod,
+        });
+        qc.invalidateQueries({ queryKey: ['finance-transactions'] });
+        qc.invalidateQueries({ queryKey: ['finance-summary'] });
+      } catch {
+        useToastStore.getState().addToast({
+          type:    'warning',
+          message: 'Պարտքը պահպանվեց, բայց Մուտք/Ելք գործարքը չստեղծվեց ավտոմատ — ավելացրեք ձեռքով։',
+        });
+      }
       onClose();
     },
     onError: (e: Error) => setErr(e.message),

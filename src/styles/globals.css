@@ -113,6 +113,16 @@ button, a, input, select, textarea {
 .dark .bg-gray-100.text-gray-600,
 .dark .bg-gray-100    { background-color: #232323 !important; }
 
+/* ── Dark: primary (indigo) — darker fills/tints, softer text so it doesn't
+   glare against a near-black background ────────────────────────────────── */
+
+.dark .bg-primary                    { background-image: linear-gradient(135deg, #3730A3 0%, #272566 100%) !important; }
+.dark .hover\:bg-primary-hover:hover { background-image: linear-gradient(135deg, #312E81 0%, #201D52 100%) !important; }
+.dark .text-primary                  { color: #9B97F5 !important; }
+.dark .border-primary                { border-color: #4338CA !important; }
+.dark [class*="bg-primary\/"]        { background-color: rgba(67, 56, 202, 0.22) !important; }
+.dark [class*="border-primary\/"]    { border-color: rgba(67, 56, 202, 0.4)  !important; }
+
 /* ── Dark: shadow overrides ──────────────────────────────────────────────── */
 
 .dark .shadow-sm  { box-shadow: 0 1px 3px 0 rgba(0,0,0,.5), 0 1px 2px -1px rgba(0,0,0,.5) !important; }
@@ -134,12 +144,6 @@ button, a, input, select, textarea {
 .dark textarea::placeholder { color: var(--color-text-muted) !important; }
 
 /* ── Dark: sidebar / layout specific ────────────────────────────────────── */
-
-/* Sidebar active item */
-.dark .bg-primary-light,
-.dark [class*="bg-primary\/"] {
-  /* keep the primary tint but darker */
-}
 
 /* Backdrop blur modals */
 .dark .backdrop-blur-sm { backdrop-filter: blur(6px); }

@@ -5,6 +5,7 @@ import { SkTable, SkListRow } from '@/components/ui/Skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { otherDebtService, type OtherDebtDTO, type DebtPayment } from '@/services/debt.service';
 import { financeService } from '@/services/finance.service';
+import { useToastStore } from '@/stores/toast';
 import { toLocalDateTimeInput } from '@/lib/date';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -112,36 +113,42 @@ function AddDebtModal({ onClose }: { onClose: () => void }) {
   const [err,           setErr]           = useState('');
 
   const { mutate, isPending } = useMutation({
-    mutationFn: async () => {
-      const debt = await otherDebtService.create({
-        party_name: partyName.trim(),
-        direction,
-        title:      title.trim(),
-        amount:     amount.trim(),
-        due_date:   dueDate || undefined,
-        notes:      notes.trim() || undefined,
-      });
-      // "owed_to_us" means we're the one handing out cash right now (a loan/advance
-      // that makes the other party owe us back) — record it in Finance immediately.
-      // "we_owe" is an obligation we received without cash leaving yet; money only
-      // moves when we actually pay it off (the backend already records that
-      // repayment as an expense on its own).
-      if (direction === 'owed_to_us') {
-        await financeService.create({
-          direction:        'out',
-          category:         'other',
-          amount:           parseFloat(amount.trim()),
-          description:      `Պարտք՝ ${partyName.trim()}${title.trim() ? ' — ' + title.trim() : ''}`,
-          transaction_date: new Date().toISOString(),
-          payment_method:   paymentMethod,
-        });
-      }
-      return debt;
-    },
-    onSuccess: () => {
+    mutationFn: () => otherDebtService.create({
+      party_name: partyName.trim(),
+      direction,
+      title:      title.trim(),
+      amount:     amount.trim(),
+      due_date:   dueDate || undefined,
+      notes:      notes.trim() || undefined,
+    }),
+    onSuccess: async () => {
       qc.invalidateQueries({ queryKey: ['other-debts'] });
-      qc.invalidateQueries({ queryKey: ['finance-transactions'] });
-      qc.invalidateQueries({ queryKey: ['finance-summary'] });
+      // The debt itself is already saved at this point. "owed_to_us" means we're
+      // the one handing out cash right now (a loan/advance that makes the other
+      // party owe us back), so it also needs a Finance entry — but that's
+      // best-effort bookkeeping and must NOT surface as a creation error (that
+      // would tempt a retry and create a duplicate debt). "we_owe" is an
+      // obligation we received without cash leaving yet; money only moves when
+      // we actually pay it off (the backend already records that as an expense).
+      if (direction === 'owed_to_us') {
+        try {
+          await financeService.create({
+            direction:        'out',
+            category:         'other',
+            amount:           parseFloat(amount.trim()),
+            description:      `Պարտք՝ ${partyName.trim()}${title.trim() ? ' — ' + title.trim() : ''}`,
+            transaction_date: new Date().toISOString(),
+            payment_method:   paymentMethod,
+          });
+          qc.invalidateQueries({ queryKey: ['finance-transactions'] });
+          qc.invalidateQueries({ queryKey: ['finance-summary'] });
+        } catch {
+          useToastStore.getState().addToast({
+            type:    'warning',
+            message: 'Պարտքը պահպանվեց, բայց Մուտք/Ելք գործարքը չստեղծվեց ավտոմատ — ավելացրեք ձեռքով։',
+          });
+        }
+      }
       onClose();
     },
     onError: (e: Error) => setErr(e.message),

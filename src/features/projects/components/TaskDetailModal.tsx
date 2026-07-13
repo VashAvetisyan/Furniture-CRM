@@ -7,15 +7,13 @@ import type { NamedItemDTO, TaskCommentDTO, AttachmentDTO } from '@/services/tas
 import { deliveryService } from '@/services/delivery.service';
 import { debtService } from '@/services/debt.service';
 import { mediaUrl } from '@/lib/api';
-import { toLocalDateTimeInput } from '@/lib/date';
+import { toLocalDateInput, toLocalDateTimeInput } from '@/lib/date';
 import { employeeService } from '@/services/employee.service';
 import { clientService, type ClientDTO } from '@/services/client.service';
 import Avatar from '@/components/ui/Avatar';
 import { useAuthStore } from '@/stores';
 import { ArrowUpIcon, ArrowDownIcon } from '@/components/icons';
 import type { Task, TaskPriority, TaskPayment, TaskDeliveryInfo } from '../types';
-
-const PRIORITIES: TaskPriority[] = ['High', 'Medium', 'Low'];
 
 const priorityConfig: Record<TaskPriority, { bg: string; text: string; label: string; Icon: typeof ArrowUpIcon }> = {
   High:   { bg: 'bg-error/10',   text: 'text-error',   label: 'Բարձր',  Icon: ArrowUpIcon   },
@@ -63,77 +61,60 @@ function EditField({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-// ── SelectWithAdd ─────────────────────────────────────────────────────────────
+// ── Creatable combo (matches AddTaskModal's fabric-type/softness picker) ───────
 
-function SelectWithAdd({ value, onChange, items, onCreate, queryKey }: {
-  value:    string;
-  onChange: (v: string) => void;
-  items:    NamedItemDTO[];
-  onCreate: (name: string) => Promise<NamedItemDTO>;
-  queryKey: string;
+function CreatableCombo({ items, id, name, onChange, placeholder }: {
+  items:       NamedItemDTO[];
+  id:          string;
+  name:        string;
+  onChange:    (id: string, name: string) => void;
+  placeholder?: string;
 }) {
-  const queryClient   = useQueryClient();
-  const [adding, setAdding] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [saving, setSaving]   = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
 
-  useEffect(() => { if (adding) inputRef.current?.focus(); }, [adding]);
+  const filtered = name.trim()
+    ? items.filter(i => i.name.toLowerCase().includes(name.toLowerCase()))
+    : items;
 
-  async function handleCreate() {
-    const name = newName.trim();
-    if (!name) { setAdding(false); return; }
-    setSaving(true);
-    try {
-      const created = await onCreate(name);
-      queryClient.invalidateQueries({ queryKey: [queryKey] });
-      onChange(String(created.id));
-    } finally {
-      setSaving(false);
-      setNewName('');
-      setAdding(false);
-    }
-  }
+  const isNew = name.trim() !== '' && !items.some(
+    i => i.name.toLowerCase() === name.trim().toLowerCase()
+  );
 
   return (
-    <div className="flex gap-1.5 items-center">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 text-sm rounded-xl border border-crm-border outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all bg-white"
-      >
-        <option value="">—</option>
-        {items.map((i) => <option key={i.id} value={String(i.id)}>{i.name}</option>)}
-      </select>
-
-      {adding ? (
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <input
-            ref={inputRef}
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleCreate();
-              if (e.key === 'Escape') { setAdding(false); setNewName(''); }
-            }}
-            disabled={saving}
-            placeholder="Անուն..."
-            className="w-24 px-2 py-1.5 text-xs rounded-lg border border-primary outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-50"
-          />
-          <button type="button" onClick={handleCreate} disabled={saving || !newName.trim()}
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-primary text-white text-xs hover:bg-primary-hover disabled:opacity-40 transition-colors flex-shrink-0"
-          >{saving ? '…' : '✓'}</button>
-          <button type="button" onClick={() => { setAdding(false); setNewName(''); }}
-            className="w-7 h-7 flex items-center justify-center rounded-full border border-crm-border text-text-muted hover:border-error hover:text-error text-xs transition-colors flex-shrink-0"
-          >✕</button>
+    <div className="relative">
+      <input
+        value={name}
+        onChange={(e) => { onChange('', e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder={placeholder ?? 'Ընտրել կամ մուտքագրել...'}
+        className={inputCls()}
+        autoComplete="off"
+      />
+      {open && (filtered.length > 0 || isNew) && (
+        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white border border-crm-border rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+          {filtered.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onChange(String(item.id), item.name); setOpen(false); }}
+              className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                id === String(item.id)
+                  ? 'bg-primary/5 text-primary font-semibold'
+                  : 'text-dark hover:bg-gray-50'
+              }`}
+            >
+              {item.name}
+            </button>
+          ))}
+          {isNew && (
+            <div className="px-3 py-2 text-xs border-t border-crm-border flex items-center gap-1.5 bg-gray-50/60 text-text-muted">
+              <span className="text-primary font-bold">+</span>
+              <span>«{name.trim()}» — կստեղծվի</span>
+            </div>
+          )}
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          title="Ավելացնել նոր"
-          className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl border-2 border-dashed border-crm-border text-text-muted hover:border-primary hover:text-primary transition-colors text-lg font-light"
-        >+</button>
       )}
     </div>
   );
@@ -228,8 +209,32 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
   const [saveError, setSaveError] = useState('');
 
   const { mutate, isPending } = useMutation({
-    mutationFn: async ({ taskData }: { taskData: Parameters<typeof taskService.update>[1] }) => {
-      await taskService.update(task.id, taskData);
+    mutationFn: async ({ taskData, fabricTypeId, fabricTypeName: newFabricName, softnessId, softnessName: newSoftnessName }: {
+      taskData:       Parameters<typeof taskService.update>[1];
+      fabricTypeId:   string;
+      fabricTypeName: string;
+      softnessId:     string;
+      softnessName:   string;
+    }) => {
+      // Resolve creatable combos — create if the typed value is new (same
+      // deferred-creation flow as AddTaskModal).
+      let resolvedFabricId: number | null = fabricTypeId ? Number(fabricTypeId) : null;
+      if (newFabricName.trim() && !fabricTypeId) {
+        try {
+          const created = await fabricTypeService.create(newFabricName.trim());
+          queryClient.invalidateQueries({ queryKey: ['fabric-types'] });
+          resolvedFabricId = created.id;
+        } catch { /* skip */ }
+      }
+      let resolvedSoftnessId: number | null = softnessId ? Number(softnessId) : null;
+      if (newSoftnessName.trim() && !softnessId) {
+        try {
+          const created = await softnessService.create(newSoftnessName.trim());
+          queryClient.invalidateQueries({ queryKey: ['softness-levels'] });
+          resolvedSoftnessId = created.id;
+        } catch { /* skip */ }
+      }
+      await taskService.update(task.id, { ...taskData, fabricTypeId: resolvedFabricId, softnessId: resolvedSoftnessId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -544,15 +549,17 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
   const [clientId,        setClientId] = useState(task.client          ?? '');
   const [phone,           setPhone]    = useState(task.phone           ?? '');
   const [passportSeries,  setPassport] = useState(task.passportSeries  ?? '');
-  const [acceptanceDate,  setAccDate]  = useState(task.acceptanceDate  ?? '');
+  const [acceptanceDate,  setAccDate]  = useState(() => task.acceptanceDate ? toLocalDateTimeInput(new Date(task.acceptanceDate)) : '');
   const [deliveryAddress, setAddress]  = useState(task.deliveryAddress ?? '');
   const [clientNotes,     setClientNotes] = useState(task.description  ?? '');
   const [model,           setModel]    = useState(task.model           ?? '');
   const [dimensions,      setDims]     = useState(task.dimensions      ?? '');
-  const [fabricType,      setFabric]   = useState(task.fabricTypeId != null ? String(task.fabricTypeId) : '');
-  const [softness,        setSoftness] = useState(task.softnessId  != null ? String(task.softnessId)  : '');
+  const [fabricType,      setFabric]     = useState(task.fabricTypeId != null ? String(task.fabricTypeId) : '');
+  const [fabricTypeName,  setFabricName] = useState(task.fabricType ?? '');
+  const [softness,        setSoftness]   = useState(task.softnessId  != null ? String(task.softnessId)  : '');
+  const [softnessName,    setSoftnessName] = useState(task.softness ?? '');
   const [price,           setPrice]    = useState(task.price           ?? '');
-  const [deadline,        setDeadline] = useState(task.deadline        ?? '');
+  const [deadline,        setDeadline] = useState(() => task.deadline ? toLocalDateInput(new Date(task.deadline)) : '');
   const [priority,        setPriority] = useState<TaskPriority>(task.priority);
   const [notes,           setNotes]    = useState(task.notes ?? '');
   const [assigneeRows,    setAssigneeRows] = useState<AssigneeRow[]>(() => initRows(task));
@@ -679,8 +686,6 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
         deliveryAddress: deliveryAddress.trim() || undefined,
         model:           model.trim()           || undefined,
         dimensions:      dimensions.trim()      || undefined,
-        fabricTypeId:    fabricType ? Number(fabricType) : null,
-        softnessId:      softness   ? Number(softness)   : null,
         price:           price.trim()           || undefined,
         deadline:        deadline               || undefined,
         priority,
@@ -693,6 +698,10 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
             salaryAmount: r.payment.trim() || undefined,
           })),
       },
+      fabricTypeId:   fabricType,
+      fabricTypeName,
+      softnessId:     softness,
+      softnessName,
     });
   }
 
@@ -701,15 +710,17 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
     setClientId(task.client ?? '');
     setPhone(task.phone ?? '');
     setPassport(linkedClient?.id_document || task.passportSeries || '');
-    setAccDate(task.acceptanceDate ?? '');
+    setAccDate(task.acceptanceDate ? toLocalDateTimeInput(new Date(task.acceptanceDate)) : '');
     setAddress(task.deliveryAddress ?? '');
     setClientNotes(linkedClient?.description || task.description || '');
     setModel(task.model ?? '');
     setDims(task.dimensions ?? '');
     setFabric(task.fabricTypeId != null ? String(task.fabricTypeId) : '');
+    setFabricName(task.fabricType ?? '');
     setSoftness(task.softnessId  != null ? String(task.softnessId)  : '');
+    setSoftnessName(task.softness ?? '');
     setPrice(task.price ?? '');
-    setDeadline(task.deadline ?? '');
+    setDeadline(task.deadline ? toLocalDateInput(new Date(task.deadline)) : '');
     setPriority(task.priority);
     setNotes(task.notes ?? '');
     setAssigneeRows(initRows(task));
@@ -800,7 +811,7 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                       disabled={isSendingDelivery}
                       className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-40"
                     >
-                      {isSendingDelivery ? '...' : task.delivery ? 'Թnrgrlu Arakvman' : 'Ուղղարկել Առաքման'}
+                      {isSendingDelivery ? '...' : task.delivery ? 'Թարմացնել Առաքումը' : 'Ուղղարկել Առաքման'}
                     </button>
                   )}
                   {allowArchive && (
@@ -843,29 +854,33 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                   </EditField>
                 )}
                 <EditField label="Ընդունման ամսաթիվ">
-                  <input type="date" value={acceptanceDate} onChange={(e) => setAccDate(e.target.value)} className={inputCls()} />
+                  <input type="datetime-local" value={acceptanceDate} onChange={(e) => setAccDate(e.target.value)} className={inputCls()} />
                 </EditField>
-                <EditField label="Առաքման հասցե">
-                  <input value={deliveryAddress} onChange={(e) => setAddress(e.target.value)} className={inputCls()} />
-                </EditField>
+                {!isEmployee && (
+                  <EditField label="Առաքման հասցե">
+                    <input value={deliveryAddress} onChange={(e) => setAddress(e.target.value)} className={inputCls()} />
+                  </EditField>
+                )}
                 {!isEmployee && (
                   <EditField label="Անձնագրի Սերիա">
                     <input value={passportSeries} onChange={(e) => setPassport(e.target.value)} placeholder="AB 1234567..." className={inputCls()} />
                   </EditField>
                 )}
               </div>
-              <EditField label="Հաճախորդի նշումներ">
-                <textarea value={clientNotes} onChange={(e) => setClientNotes(e.target.value)} rows={2} className={inputCls() + " resize-none mt-2"} />
-              </EditField>
+              {!isEmployee && (
+                <EditField label="Հաճախորդի նշումներ">
+                  <textarea value={clientNotes} onChange={(e) => setClientNotes(e.target.value)} rows={2} className={inputCls() + " resize-none mt-2"} />
+                </EditField>
+              )}
               </>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <MetaCell label="Անուն Ազգանուն">{resolveClientName(task.client)}</MetaCell>
                 {!isEmployee && <MetaCell label="Հեռախոսահամար">{task.phone || '—'}</MetaCell>}
                 <MetaCell label="Ընդունման ամսաթիվը">{task.acceptanceDate ? new Date(task.acceptanceDate).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'}</MetaCell>
-                <MetaCell label="Առաքման հասցե">{task.deliveryAddress || '—'}</MetaCell>
+                {!isEmployee && <MetaCell label="Առաքման հասցե">{task.deliveryAddress || '—'}</MetaCell>}
                 {!isEmployee && <MetaCell label="Անձնագրերի սերիա">{linkedClient?.id_document || task.passportSeries || "—"}</MetaCell>}
-                <MetaCell label="Հաճախորդի նշումներ">{linkedClient?.description || task.description || "—"}</MetaCell>
+                {!isEmployee && <MetaCell label="Հաճախորդի նշումներ">{linkedClient?.description || task.description || "—"}</MetaCell>}
               </div>
             )}
           </div>
@@ -882,21 +897,19 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                   <input value={dimensions} onChange={(e) => setDims(e.target.value)} className={inputCls()} />
                 </EditField>
                 <EditField label="Կտորի տեսակ">
-                  <SelectWithAdd
-                    value={fabricType}
-                    onChange={setFabric}
+                  <CreatableCombo
                     items={fabricTypes}
-                    onCreate={(name) => fabricTypeService.create(name)}
-                    queryKey="fabric-types"
+                    id={fabricType}
+                    name={fabricTypeName}
+                    onChange={(id, name) => { setFabric(id); setFabricName(name); }}
                   />
                 </EditField>
                 <EditField label="Փափկություն">
-                  <SelectWithAdd
-                    value={softness}
-                    onChange={setSoftness}
+                  <CreatableCombo
                     items={softnessLevels}
-                    onCreate={(name) => softnessService.create(name)}
-                    queryKey="softness-levels"
+                    id={softness}
+                    name={softnessName}
+                    onChange={(id, name) => { setSoftness(id); setSoftnessName(name); }}
                   />
                 </EditField>
               </div>
@@ -1152,18 +1165,9 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                 Կատարող
                 </button>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <EditField label="Կարևորություն">
-                    <select value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)} className={inputCls()}>
-                      {PRIORITIES.map((p) => (
-                        <option key={p} value={p}>{priorityConfig[p].label}</option>
-                      ))}
-                    </select>
-                  </EditField>
-                  <EditField label="Վերջնաժամկետ">
-                    <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={inputCls()} />
-                  </EditField>
-                </div>
+                <EditField label="Վերջնաժամկետ">
+                  <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={inputCls()} />
+                </EditField>
               </div>
             ) : (
               <div className="flex flex-col gap-3">
@@ -1567,7 +1571,7 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                   disabled={isPending}
                   className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-white text-sm font-semibold rounded-xl transition-colors shadow-sm disabled:opacity-60"
                 >
-                  {isPending ? 'Պահpanaum...' : 'Պահպանել'}
+                  {isPending ? 'Պահպանում...' : 'Պահպանել'}
                 </button>
               </div>
             </div>

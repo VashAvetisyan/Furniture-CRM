@@ -77,7 +77,7 @@ function DeleteConfirm({ name, onCancel, onConfirm, isPending }: {
           </button>
           <button onClick={onConfirm} disabled={isPending}
             className="px-4 py-2 text-sm font-medium rounded-lg bg-error text-white hover:bg-error/90 transition-colors disabled:opacity-50">
-            {isPending ? 'Ջնջum...' : 'Ջնջel'}
+            {isPending ? 'Ջնջում...' : 'Ջնջել'}
           </button>
         </div>
       </div>

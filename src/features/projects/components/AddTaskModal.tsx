@@ -341,7 +341,7 @@ export default function AddTaskModal({ assignees: allAssignees, onClose, onCreat
   function handleFiles(files: FileList | null) {
     if (!files) return;
     const valid = Array.from(files).filter((f) => ALLOWED.includes(f.type));
-    if (valid.length < files.length) setError('Թuylatretvum en miayni nkar u video fayleр');
+    if (valid.length < files.length) setError('Թույլատրվում են միայն նկար և վիդեո ֆայլեր');
     setPendingFiles((prev) => [...prev, ...valid]);
   }
 
@@ -535,7 +535,7 @@ export default function AddTaskModal({ assignees: allAssignees, onClose, onCreat
             await attachmentService.upload(numericId, file);
           } catch (uploadErr: unknown) {
             const msg = uploadErr instanceof Error ? uploadErr.message : 'Upload error';
-            setError(`Ֆայlero upload chstacav: ${msg}`);
+            setError(`Ֆայլերի վերբեռնումը ձախողվեց...`);
             setUploading(false);
             return;
           }
@@ -548,7 +548,7 @@ export default function AddTaskModal({ assignees: allAssignees, onClose, onCreat
       onCreated?.();
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Сехалт');
+      setError(err instanceof Error ? err.message : 'Սխալ');
     } finally {
       setUploading(false);
     }
@@ -691,7 +691,7 @@ export default function AddTaskModal({ assignees: allAssignees, onClose, onCreat
               <input
                 value={dimensions}
                 onChange={(e) => setDimensions(e.target.value)}
-                placeholder="Օ — 90, Կուրծք — 44, Բազուկ — 60..."
+                placeholder="Չափեր"
                 className={inputCls()}
               />
             </Field>

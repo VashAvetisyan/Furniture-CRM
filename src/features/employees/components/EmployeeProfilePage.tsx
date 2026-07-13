@@ -631,7 +631,7 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                         {payments.length > 0 ? `${payments.length}` : ""}
                       </button>
                       {taskPaid ? (
-                        <button onClick={() => { openPayForm(t); t.id && setExpandedIds(p => new Set(p).add(t.id!)); }} className="px-3 py-1 text-xs font-medium rounded-full bg-success/10 text-success">Վchарված ✓</button>
+                        <button onClick={() => { openPayForm(t); t.id && setExpandedIds(p => new Set(p).add(t.id!)); }} className="px-3 py-1 text-xs font-medium rounded-full bg-success/10 text-success">Վճարված  ✓</button>
                       ) : (
                         <button
                           onClick={() => { if (isOpen) { setOpenId(null); } else { openPayForm(t); t.id && setExpandedIds(p => new Set(p).add(t.id!)); } }}
@@ -647,8 +647,13 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                     <div className="border-t border-crm-border/40 bg-gray-50/50">
                       {payments.map((p) => (
                         <div key={p.id} className="flex items-center gap-2 px-4 py-1.5 text-xs text-text-muted border-b border-crm-border/20 last:border-b-0">
-                          <span className="font-semibold text-success">{parseFloat(p.amount).toLocaleString('hy-AM')} ֏</span>
-                          <span className="flex-1 truncate">{p.note || '--'}</span>
+                          <span className="font-semibold text-success flex-shrink-0">{parseFloat(p.amount).toLocaleString('hy-AM')} ֏</span>
+                          {p.payment_method && (
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0 ${p.payment_method === 'card' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {p.payment_method === 'card' ? 'Քարտով' : 'Կանխիկ'}
+                            </span>
+                          )}
+                          <span className="flex-1 truncate">{p.note || 'Նշումներ չկա'}</span>
                           <span className="flex-shrink-0">{p.paidAt ? new Date(p.paidAt).toLocaleDateString('hy-AM') : '--'}</span>
                           <button onClick={() => assignee && t.id && removePay({ taskId: t.id, userId: assignee.userId, paymentId: p.id })} className="text-text-muted hover:text-error transition-colors p-0.5 rounded flex-shrink-0"><TrashIcon /></button>
                         </div>
@@ -769,7 +774,12 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                           <span className="w-4 flex-shrink-0" />
                           <span className="w-7 flex-shrink-0" />
                           <span className="font-semibold text-success w-28 text-right flex-shrink-0">{parseFloat(p.amount).toLocaleString('hy-AM')} ֏</span>
-                          <span className="flex-1 truncate">{p.note || '--'}</span>
+                          {p.payment_method && (
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0 ${p.payment_method === 'card' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {p.payment_method === 'card' ? 'Քարտով' : 'Կանխիկ'}
+                            </span>
+                          )}
+                          <span className="flex-1 truncate">{p.note || 'Նշումներ չկա'}</span>
                           <span className="flex-shrink-0">{p.paidAt ? new Date(p.paidAt).toLocaleDateString('hy-AM') : '--'}</span>
                           <button onClick={() => assignee && t.id && removePay({ taskId: t.id, userId: assignee.userId, paymentId: p.id })} className="text-text-muted hover:text-error transition-colors p-0.5 rounded flex-shrink-0"><TrashIcon /></button>
                         </div>

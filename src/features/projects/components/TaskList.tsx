@@ -6,6 +6,7 @@ import Avatar from '@/components/ui/Avatar';
 import TaskDetailModal from './TaskDetailModal';
 import { taskService, taskStatusService, type TaskStatusDTO } from '@/services/task.service';
 import type { Task } from '../types';
+import { useAuthStore } from '@/stores';
 
 const STATUS_COLORS = [
   'bg-blue-100 text-blue-700',
@@ -37,7 +38,24 @@ function formatPrice(val?: string): string {
 }
 
 const COLS = '2.4fr 160px 110px 140px 130px';
+const COLS_NO_PRICE = '2.4fr 160px 110px 130px';
 const PAGE_SIZE = 30;
+
+// Employees don't have a stored statusId of their own — their stage is derived
+// from their personal isStarted/isDone flags, same as the board view computes it
+// (see computeDisplayStatus in TaskBoard.tsx). Keeps the list badge in sync with
+// what the detail modal's guarded stage-progression flow actually shows.
+function computeEmployeeDisplayStatus(task: Task, myUserId: number | null, allStatuses: StatusOption[]): string {
+  const assignees = task.assignees;
+  if (!assignees || assignees.length === 0 || allStatuses.length < 2 || !myUserId) {
+    return String(task.status);
+  }
+  const mine = assignees.find((a) => a.userId === myUserId);
+  if (!mine) return String(task.status);
+  if (mine.isDone)    return allStatuses[allStatuses.length - 1].id;
+  if (mine.isStarted) return allStatuses[1].id;
+  return allStatuses[0].id;
+}
 
 function ChevronLeftIcon() {
   return (
@@ -269,11 +287,15 @@ function TaskRow({
   statusMap,
   allStatuses,
   onOpen,
+  isEmployee,
+  myUserId,
 }: {
   task: Task;
   statusMap: Map<string, { name: string; colorClass: string }>;
   allStatuses: StatusOption[];
   onOpen: (t: Task) => void;
+  isEmployee: boolean;
+  myUserId: number | null;
 }) {
   const [currentStatusId, setCurrentStatusId] = useState(String(task.status));
 
@@ -325,9 +347,15 @@ function TaskRow({
     </div>
   );
 
-  const statusCell = task.section === 'archive' ? (
-    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusMap.get(currentStatusId)?.colorClass ?? 'bg-gray-100 text-gray-600'}`}>
-      {statusMap.get(currentStatusId)?.name ?? currentStatusId}
+  // Employees don't get the freeform status dropdown — their stage only moves
+  // through the guarded Սկսել/Ավարտել flow in the task detail modal, so the list
+  // shows a read-only badge here (same as archived tasks) instead of letting a
+  // raw statusId write desync from their own isStarted/isDone flags.
+  const displayStatusId = isEmployee ? computeEmployeeDisplayStatus(task, myUserId, allStatuses) : currentStatusId;
+
+  const statusCell = (task.section === 'archive' || isEmployee) ? (
+    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusMap.get(displayStatusId)?.colorClass ?? 'bg-gray-100 text-gray-600'}`}>
+      {statusMap.get(displayStatusId)?.name ?? displayStatusId}
     </span>
   ) : (
     <StatusCell
@@ -355,14 +383,14 @@ function TaskRow({
         </div>
 
         {/* Client + phone */}
-        {(task.client || task.phone) && (
+        {(task.client || (task.phone && !isEmployee)) && (
           <div className="flex items-center gap-3 mb-2 pl-0.5 flex-wrap">
             {task.client && (
               <span className="text-[11px] text-text-muted flex items-center gap-1 min-w-0">
                 {clientIcon}<span className="truncate max-w-[130px]">{task.client}</span>
               </span>
             )}
-            {task.phone && (
+            {task.phone && !isEmployee && (
               <span className="text-[11px] text-text-muted/70 flex items-center gap-1">
                 {phoneIcon}{task.phone}
               </span>
@@ -382,7 +410,7 @@ function TaskRow({
                 {deadline.label}
               </span>
             ) : null}
-            {totalPrice && <span className="text-xs font-bold text-dark">{totalPrice}</span>}
+            {totalPrice && !isEmployee && <span className="text-xs font-bold text-dark">{totalPrice}</span>}
           </div>
           <div className="flex-shrink-0 w-28">{statusCell}</div>
         </div>
@@ -392,7 +420,7 @@ function TaskRow({
       <div
         onClick={() => onOpen(task)}
         className="hidden md:grid items-center gap-3 px-4 py-3 border-b border-crm-border hover:bg-primary/[0.03] transition-colors cursor-pointer last:border-0 last:rounded-b-2xl group"
-        style={{ gridTemplateColumns: COLS }}
+        style={{ gridTemplateColumns: isEmployee ? COLS_NO_PRICE : COLS }}
       >
         {/* 1. ID + name + client + phone */}
         <div className="min-w-0 flex flex-col gap-0.5">
@@ -402,14 +430,14 @@ function TaskRow({
             </span>
             <p className="text-sm font-semibold text-dark truncate group-hover:text-primary transition-colors">{task.name}</p>
           </div>
-          {(task.client || task.phone) && (
+          {(task.client || (task.phone && !isEmployee)) && (
             <div className="flex items-center gap-2 pl-0.5">
               {task.client && (
                 <span className="text-[11px] text-text-muted truncate max-w-[160px] flex items-center gap-1">
                   {clientIcon}{task.client}
                 </span>
               )}
-              {task.phone && (
+              {task.phone && !isEmployee && (
                 <span className="text-[11px] text-text-muted/70 truncate flex items-center gap-1">
                   {phoneIcon}{task.phone}
                 </span>
@@ -433,17 +461,19 @@ function TaskRow({
         </div>
 
         {/* 4. Price */}
-        <div className="flex flex-col gap-0.5 min-w-0">
-          {totalPrice ? (
-            <>
-              <span className="text-sm font-bold text-dark">{totalPrice}</span>
-              <div className="flex items-center gap-1 flex-wrap">
-                {advance && <span className="text-[10px] text-success bg-success/10 px-1.5 rounded font-medium">↑{advance}</span>}
-                {final   && <span className="text-[10px] text-primary bg-primary/10 px-1.5 rounded font-medium">↓{final}</span>}
-              </div>
-            </>
-          ) : <span className="text-xs text-text-muted">—</span>}
-        </div>
+        {!isEmployee && (
+          <div className="flex flex-col gap-0.5 min-w-0">
+            {totalPrice ? (
+              <>
+                <span className="text-sm font-bold text-dark">{totalPrice}</span>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {advance && <span className="text-[10px] text-success bg-success/10 px-1.5 rounded font-medium">↑{advance}</span>}
+                  {final   && <span className="text-[10px] text-primary bg-primary/10 px-1.5 rounded font-medium">↓{final}</span>}
+                </div>
+              </>
+            ) : <span className="text-xs text-text-muted">—</span>}
+          </div>
+        )}
 
         {/* 5. Status */}
         <div onClick={(e) => e.stopPropagation()}>{statusCell}</div>
@@ -460,6 +490,10 @@ interface TaskListProps {
 }
 
 export default function TaskList({ tasks, projectName }: TaskListProps) {
+  const role       = useAuthStore((s) => s.role);
+  const user       = useAuthStore((s) => s.user);
+  const isEmployee = role === 'employee';
+  const myUserId   = user?.id ? Number(user.id) : null;
   const [openTask, setOpenTask] = useState<Task | null>(null);
   const [page, setPage] = useState(1);
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
@@ -532,12 +566,14 @@ export default function TaskList({ tasks, projectName }: TaskListProps) {
             {/* Desktop header — hidden on mobile */}
             <div
               className="hidden md:grid items-center gap-3 px-4 py-2.5 bg-gray-50/80 border-b border-crm-border rounded-t-2xl"
-              style={{ gridTemplateColumns: COLS }}
+              style={{ gridTemplateColumns: isEmployee ? COLS_NO_PRICE : COLS }}
             >
               <span className="text-[11px] font-bold text-text-muted uppercase tracking-wide">Անուն / Հաճ.</span>
               <HeaderDropdown label="Կատարող" options={assigneeOptions} selected={assigneeFilter} onSelect={setAssigneeFilter} />
               <HeaderSortButton label="Ժամկետ" active={sortKey === 'deadline'} dir={sortDir} onClick={() => toggleSort('deadline')} />
-              <HeaderSortButton label="Արժեք" active={sortKey === 'price'} dir={sortDir} onClick={() => toggleSort('price')} />
+              {!isEmployee && (
+                <HeaderSortButton label="Արժեք" active={sortKey === 'price'} dir={sortDir} onClick={() => toggleSort('price')} />
+              )}
               <HeaderDropdown label="Կարգ." options={allStatuses} selected={statusFilter} onSelect={setStatusFilter} />
             </div>
 
@@ -553,6 +589,8 @@ export default function TaskList({ tasks, projectName }: TaskListProps) {
                   statusMap={statusMap}
                   allStatuses={allStatuses}
                   onOpen={setOpenTask}
+                  isEmployee={isEmployee}
+                  myUserId={myUserId}
                 />
               ))
             )}

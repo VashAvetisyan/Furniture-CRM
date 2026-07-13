@@ -6,6 +6,7 @@ import { financeService } from '@/services/finance.service';
 import type { TransactionDTO, TransactionCategory, TransactionDirection, CreateTransactionRequest, CustomCategory } from '@/services/finance.service';
 import { transferService } from '@/services/transfer.service';
 import type { TransferDTO, TransferDirection } from '@/services/transfer.service';
+import { taskService } from '@/services/task.service';
 import { useAuthStore } from '@/stores';
 import { toLocalDateTimeInput } from '@/lib/date';
 
@@ -131,6 +132,7 @@ function TransferModal({ onClose, editing }: { onClose: () => void; editing?: Tr
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['finance-transfers'] });
+      qc.invalidateQueries({ queryKey: ['finance-summary'] });
       onClose();
     },
   });
@@ -210,7 +212,7 @@ function TransferModal({ onClose, editing }: { onClose: () => void; editing?: Tr
 
         <div className="flex gap-2 px-6 py-4 border-t border-crm-border justify-end">
           <button onClick={onClose} className="px-4 py-2 text-sm font-semibold rounded-xl border border-crm-border text-text-muted hover:bg-gray-50 transition-colors">
-            Չеղarkel
+            Չեղարկել
           </button>
           <button
             onClick={() => mutate()}
@@ -277,7 +279,7 @@ function AddModal({ onClose, customCategories }: { onClose: () => void; customCa
     <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/30 backdrop-blur-sm overflow-y-auto py-6">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[420px] mx-4 my-auto flex flex-col max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-crm-border">
-          <h2 className="text-base font-bold text-dark">Ավելացնել գործարքում</h2>
+          <h2 className="text-base font-bold text-dark">Ավելացնել գործարք</h2>
           <button onClick={onClose} className="text-text-muted hover:text-dark">
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -390,7 +392,7 @@ function ConfirmDeleteModal({ onConfirm, onCancel, isPending }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[360px] mx-4 flex flex-col">
         <div className="px-6 py-4 border-b border-crm-border">
-          <h2 className="text-base font-bold text-dark">Ջնջե՞լ գործարք?</h2>
+          <h2 className="text-base font-bold text-dark">Ջնջե՞լ Գործարք?</h2>
         </div>
         <div className="px-6 py-5">
           <p className="text-sm text-text-muted">Այս գործողությունը հետ դարծնել հնարավոր չի լինի։</p>
@@ -452,6 +454,30 @@ export default function FinancePage() {
     queryFn:  () => financeService.getAll(txFilters),
   });
 
+  // Order-linked transactions (payment_advance/payment_final/payment) only carry
+  // the raw task id + a backend-generated English description — look the task up
+  // so the list can show the client + furniture model instead.
+  const { data: activeTasksForLookup } = useQuery({
+    queryKey: ['tasks', 'all'],
+    queryFn:  taskService.getAll,
+    staleTime: 60_000,
+    enabled:  mainTab === 'transactions',
+  });
+  const { data: archivedTasksForLookup } = useQuery({
+    queryKey: ['tasks', 'archive'],
+    queryFn:  taskService.getArchived,
+    staleTime: 60_000,
+    enabled:  mainTab === 'transactions',
+  });
+  const taskLookup = useMemo(() => {
+    const map = new Map<number, { client: string; model: string; taskId: string }>();
+    for (const t of [...(activeTasksForLookup?.results ?? []), ...(archivedTasksForLookup?.results ?? [])]) {
+      if (t.id == null) continue;
+      map.set(Number(t.id), { client: t.client || t.name || '', model: t.model || '', taskId: t.taskId });
+    }
+    return map;
+  }, [activeTasksForLookup, archivedTasksForLookup]);
+
   const { data: summary } = useQuery({
     queryKey: ['finance-summary', { date_from: dateFrom, date_to: dateTo }],
     queryFn:  () => financeService.getSummary({ date_from: dateFrom || undefined, date_to: dateTo || undefined }),
@@ -481,6 +507,7 @@ export default function FinancePage() {
     mutationFn: (id: number) => transferService.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['finance-transfers'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-summary'] });
       setDeleteTransfer(null);
     },
   });
@@ -516,6 +543,14 @@ export default function FinancePage() {
       cashOut: sum('out', 'cash'),
     };
   }, [summary, txData]);
+
+  function txSubtitle(tx: TransactionDTO): string | null {
+    if (tx.task != null) {
+      const info = taskLookup.get(tx.task);
+      if (info) return info.model ? `${info.client} — ${info.model}` : info.client || null;
+    }
+    return tx.description || null;
+  }
 
   async function handleExport(format: 'xlsx' | 'pdf') {
     if (isExporting) return;
@@ -557,7 +592,7 @@ export default function FinancePage() {
               onClick={() => setMainTab('transactions')}
               className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all ${mainTab === 'transactions' ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
             >
-              Գործարքումներ
+              Գործարքներ
             </button>
             <button
               onClick={() => setMainTab('transfers')}
@@ -815,7 +850,7 @@ export default function FinancePage() {
           </div>
 
           {transfersLoading ? (
-            <div className="flex items-center justify-center h-48 text-text-muted text-sm">Beռvum e...</div>
+            <div className="flex items-center justify-center h-48 text-text-muted text-sm">Բեռնվում է..</div>
           ) : !transferData?.results.length ? (
             <div className="flex flex-col items-center justify-center h-48 gap-3">
               <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
@@ -827,32 +862,32 @@ export default function FinancePage() {
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-crm-border overflow-hidden">
-              <div className="hidden sm:grid grid-cols-[150px_1fr_160px_44px_44px] gap-4 px-5 py-3 border-b border-crm-border bg-gray-50 sticky top-0">
-                <span className="text-xs font-semibold text-text-muted">Ամsaθив</span>
-                <span className="text-xs font-semibold text-text-muted">Ծanотum</span>
-                <span className="text-xs font-semibold text-text-muted text-center">Ուγγuθyun</span>
-                <span className="text-xs font-semibold text-text-muted text-right col-span-2">Gumar</span>
+              <div className="hidden sm:grid grid-cols-[150px_1fr_44px_44px] gap-4 px-5 py-3 border-b border-crm-border bg-gray-50 sticky top-0">
+                <span className="text-xs font-semibold text-text-muted">Ամսաթիվ</span>
+                <span className="text-xs font-semibold text-text-muted text-center">Ուղղություն</span>
+                <span className="text-xs font-semibold text-text-muted text-right col-span-2">Գումար</span>
               </div>
               {transferData.results.map((tr) => (
-                <div key={tr.id} className="grid grid-cols-[1fr_auto] sm:grid-cols-[150px_1fr_160px_44px_44px] gap-3 sm:gap-4 px-5 py-3.5 border-b border-crm-border last:border-b-0 hover:bg-gray-50 transition-colors items-center">
+                <div key={tr.id} className="grid grid-cols-[1fr_auto] sm:grid-cols-[150px_1fr_44px_44px] gap-3 sm:gap-4 px-5 py-3.5 border-b border-crm-border last:border-b-0 hover:bg-gray-50 transition-colors items-center">
                   <span className="hidden sm:block text-xs text-text-muted whitespace-nowrap">
                     {fmtDate(tr.transferDate)}
                   </span>
-                  <div className="min-w-0">
+                  <div className="min-w-0 sm:hidden">
                     <p className="text-sm font-semibold text-dark">
                       {tr.direction === 'cash_to_card' ? 'Կանխիկ → Քարտով' : 'Քարտով → Կանխիկ'}
                     </p>
                     {tr.note && <p className="text-xs text-text-muted truncate">{tr.note}</p>}
-                    <p className="text-[11px] text-text-muted sm:hidden mt-0.5">{fmtDate(tr.transferDate)}</p>
+                    <p className="text-[11px] text-text-muted mt-0.5">{fmtDate(tr.transferDate)}</p>
                   </div>
-                  <div className="hidden sm:flex justify-center">
+                  <div className="hidden sm:flex flex-col items-center gap-0.5">
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${tr.direction === 'cash_to_card' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
                       {tr.direction === 'cash_to_card' ? '💵→💳' : '💳→💵'}
                       {tr.direction === 'cash_to_card' ? 'Կանխիկ→Card' : 'Card→Կանխիկ'}
                     </span>
+                    {tr.note && <span className="text-[11px] text-text-muted truncate max-w-[160px]">{tr.note}</span>}
                   </div>
-                  <div className="flex items-center gap-1 justify-end sm:justify-normal">
-                    <span className="text-sm font-bold text-primary">{fmt(parseFloat(tr.amount))}</span>
+                  <div className="flex items-center gap-1 justify-end sm:justify-end sm:col-span-2">
+                    <span className="text-sm font-bold text-primary whitespace-nowrap">{fmt(parseFloat(tr.amount))}</span>
                     <button onClick={() => setEditTransfer(tr)} className="p-1.5 text-text-muted hover:text-primary transition-colors">
                       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -876,7 +911,7 @@ export default function FinancePage() {
       {/* Transactions list */}
       {mainTab === 'transactions' && <div className="flex-1 min-h-[420px]">
         {isLoading ? (
-          <div className="flex items-center justify-center h-48 text-text-muted text-sm">Բերնվում ե...</div>
+          <div className="flex items-center justify-center h-48 text-text-muted text-sm">Բեռնում է...</div>
         ) : transactions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
             <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center">
@@ -884,7 +919,7 @@ export default function FinancePage() {
                 <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
               </svg>
             </div>
-            <p className="text-sm text-text-muted">Գործարքումներ չկան</p>
+            <p className="text-sm text-text-muted">Գործարքներ չկան</p>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-crm-border overflow-hidden">
@@ -901,7 +936,7 @@ export default function FinancePage() {
                     <p className="text-sm font-semibold text-dark truncate">
                       {tx.custom_category_name ?? CATEGORY_LABELS[tx.category] ?? tx.category}
                     </p>
-                    {tx.description && <p className="text-xs text-text-muted truncate">{tx.description}</p>}
+                    {txSubtitle(tx) && <p className="text-xs text-text-muted truncate">{txSubtitle(tx)}</p>}
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <p className="text-[11px] text-text-muted">{fmtDate(tx.transaction_date)}</p>
                       {tx.payment_method && (
@@ -950,7 +985,7 @@ export default function FinancePage() {
                     <p className="text-sm font-semibold text-dark">
                       {tx.custom_category_name ?? CATEGORY_LABELS[tx.category] ?? tx.category}
                     </p>
-                    {tx.description && <p className="text-xs text-text-muted truncate">{tx.description}</p>}
+                    {txSubtitle(tx) && <p className="text-xs text-text-muted truncate">{txSubtitle(tx)}</p>}
                   </div>
                   <div className="flex justify-center">
                     {tx.payment_method ? (

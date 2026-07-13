@@ -185,7 +185,7 @@ function CallHistoryModal({ client, onClose, onBack }: {
               <button
                 onClick={onBack}
                 className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-text-muted hover:text-dark hover:bg-gray-100 transition-colors"
-                title="Հet"
+                title="Հետ"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>

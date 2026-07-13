@@ -5,6 +5,7 @@ import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { catalogService, type ProductDTO, type CreateProductData } from '@/services/catalog.service';
 import { mediaUrl } from '@/lib/api';
+import { useAuthStore } from '@/stores';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -277,11 +278,13 @@ function ProductDetailModal({
   onClose,
   onEdit,
   onDelete,
+  isEmployee,
 }: {
   product:  ProductDTO;
   onClose:  () => void;
   onEdit:   () => void;
   onDelete: () => void;
+  isEmployee: boolean;
 }) {
   const allImgs = (
     product.images?.length
@@ -320,26 +323,30 @@ function ProductDetailModal({
             )}
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            <button
-              onClick={() => { onClose(); onEdit(); }}
-              className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-semibold rounded-lg border border-crm-border text-dark hover:bg-gray-50 transition-colors"
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
-              <span className="hidden sm:inline">Խմբագրել</span>
-            </button>
-            <button
-              onClick={() => { onClose(); onDelete(); }}
-              className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-semibold rounded-lg border border-error/30 text-error hover:bg-error/5 transition-colors"
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-                <path d="M10 11v6"/><path d="M14 11v6"/>
-              </svg>
-              <span className="hidden sm:inline">Ջնջել</span>
-            </button>
+            {!isEmployee && (
+              <>
+                <button
+                  onClick={() => { onClose(); onEdit(); }}
+                  className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-semibold rounded-lg border border-crm-border text-dark hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                  <span className="hidden sm:inline">Խմբագրել</span>
+                </button>
+                <button
+                  onClick={() => { onClose(); onDelete(); }}
+                  className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-semibold rounded-lg border border-error/30 text-error hover:bg-error/5 transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                    <path d="M10 11v6"/><path d="M14 11v6"/>
+                  </svg>
+                  <span className="hidden sm:inline">Ջնջել</span>
+                </button>
+              </>
+            )}
             <button
               onClick={onClose}
               className="w-7 h-7 flex items-center justify-center rounded-full text-text-muted hover:bg-gray-100 transition-colors"
@@ -503,11 +510,13 @@ function ProductCard({
   onEdit,
   onDelete,
   onView,
+  isEmployee,
 }: {
   product:  ProductDTO;
   onEdit:   () => void;
   onDelete: () => void;
   onView:   () => void;
+  isEmployee: boolean;
 }) {
   const primaryImg = product.images?.find(img => img.is_primary)?.image
     ?? product.images?.[0]?.image
@@ -553,10 +562,12 @@ function ProductCard({
         <span className={`hidden sm:inline absolute top-2 left-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${product.is_active ? 'bg-success/10 text-success' : 'bg-gray-200 text-gray-500'}`}>
           {product.is_active ? 'Ակտիվ' : 'Ոչ ակտիվ'}
         </span>
-        <div className="hidden sm:flex absolute top-2 right-2 gap-1">
-          <EditBtn cls={`w-7 h-7 ${btnBase} hover:text-primary hover:border-primary/40`} />
-          <DelBtn  cls={`w-7 h-7 ${btnBase} hover:text-error hover:border-error/40`} />
-        </div>
+        {!isEmployee && (
+          <div className="hidden sm:flex absolute top-2 right-2 gap-1">
+            <EditBtn cls={`w-7 h-7 ${btnBase} hover:text-primary hover:border-primary/40`} />
+            <DelBtn  cls={`w-7 h-7 ${btnBase} hover:text-error hover:border-error/40`} />
+          </div>
+        )}
       </div>
 
       {/* Info */}
@@ -565,10 +576,12 @@ function ProductCard({
           <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${product.is_active ? 'bg-success/10 text-success' : 'bg-gray-200 text-gray-500'}`}>
             {product.is_active ? 'Ակտիվ' : 'Ոչ ակտիվ'}
           </span>
-          <div className="flex gap-1">
-            <EditBtn cls={`w-6 h-6 ${btnBase} hover:text-primary hover:border-primary/40`} />
-            <DelBtn  cls={`w-6 h-6 ${btnBase} hover:text-error hover:border-error/40`} />
-          </div>
+          {!isEmployee && (
+            <div className="flex gap-1">
+              <EditBtn cls={`w-6 h-6 ${btnBase} hover:text-primary hover:border-primary/40`} />
+              <DelBtn  cls={`w-6 h-6 ${btnBase} hover:text-error hover:border-error/40`} />
+            </div>
+          )}
         </div>
 
         <p className="text-xs sm:text-sm font-bold text-dark leading-snug line-clamp-2">{product.name}</p>
@@ -590,6 +603,8 @@ function ProductCard({
 
 export default function CatalogPage() {
   const qc = useQueryClient();
+  const role       = useAuthStore((s) => s.role);
+  const isEmployee = role === 'employee';
   const [search,     setSearch]     = useState('');
   const [addOpen,    setAddOpen]    = useState(false);
   const [viewProd,   setViewProd]   = useState<ProductDTO | null>(null);
@@ -625,15 +640,17 @@ export default function CatalogPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-dark">Կատալոգ</h1>
           <p className="text-xs text-text-muted mt-0.5">{products.length} ապրանք</p>
         </div>
-        <button
-          onClick={() => setAddOpen(true)}
-          className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-primary text-white text-xs sm:text-sm font-semibold rounded-xl hover:bg-primary-hover transition-colors shadow-sm"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          Ավելացնել
-        </button>
+        {!isEmployee && (
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-primary text-white text-xs sm:text-sm font-semibold rounded-xl hover:bg-primary-hover transition-colors shadow-sm"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Ավելացնել
+          </button>
+        )}
       </div>
 
       {/* Search */}
@@ -674,7 +691,9 @@ export default function CatalogPage() {
               <polyline points="21 15 16 10 5 21"/>
             </svg>
             <p className="text-sm">Ապրանքներ չկան</p>
-            <button onClick={() => setAddOpen(true)} className="text-xs text-primary font-semibold hover:underline">+ Ավելացնել ապրանք</button>
+            {!isEmployee && (
+              <button onClick={() => setAddOpen(true)} className="text-xs text-primary font-semibold hover:underline">+ Ավելացնել ապրանք</button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4">
@@ -682,6 +701,7 @@ export default function CatalogPage() {
               <ProductCard
                 key={p.id}
                 product={p}
+                isEmployee={isEmployee}
                 onView={() => setViewProd(p)}
                 onEdit={() => setEditProd(p)}
                 onDelete={() => setDelConfirm(p)}
@@ -692,18 +712,19 @@ export default function CatalogPage() {
       </div>
 
       {/* Modals */}
-      {addOpen  && <ProductModal onClose={() => setAddOpen(false)} />}
-      {editProd && <ProductModal product={editProd} onClose={() => setEditProd(null)} />}
+      {addOpen  && !isEmployee && <ProductModal onClose={() => setAddOpen(false)} />}
+      {editProd && !isEmployee && <ProductModal product={editProd} onClose={() => setEditProd(null)} />}
       {viewProd && (
         <ProductDetailModal
           product={viewProd}
+          isEmployee={isEmployee}
           onClose={() => setViewProd(null)}
           onEdit={() => setEditProd(viewProd)}
           onDelete={() => setDelConfirm(viewProd)}
         />
       )}
 
-      {delConfirm && (
+      {!isEmployee && delConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-6 w-[90vw] max-w-xs sm:max-w-sm flex flex-col gap-4">
             <div>

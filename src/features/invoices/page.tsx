@@ -57,7 +57,7 @@ export default function InvoicesPage() {
       <div className="flex-1 overflow-auto px-6 pb-6">
         {isLoading ? (
           <div className="flex items-center justify-center h-48 text-text-muted text-sm">
-            Bernvum e...
+            Բեռնվում է..
           </div>
         ) : invoices.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3 text-text-muted">
@@ -65,7 +65,7 @@ export default function InvoicesPage() {
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
             </svg>
-            <p className="text-sm">Патqrer chkаn</p>
+            <p className="text-sm">Հաշիվներ չկան</p>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-crm-border shadow-sm overflow-hidden">

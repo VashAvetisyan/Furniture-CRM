@@ -104,11 +104,11 @@ export default function CallHistoryModal({ client, onClose }: {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-dark block mb-1">Նկarагрություն</label>
+              <label className="text-xs font-medium text-dark block mb-1">Նկարագրություն</label>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Զangi manramasner..."
+                placeholder="Զանգի մանրամասներ..."
                 rows={3}
                 className="w-full px-3 py-2 text-sm rounded-xl border border-crm-border focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white resize-none"
               />

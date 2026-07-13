@@ -114,7 +114,7 @@ function TasksTab({ tasks, loading }: { tasks: TaskDTO[]; loading: boolean }) {
       </div>
       <div className="text-center px-4">
         <p className="text-sm font-semibold text-dark">Պատվերներ Չկա</p>
-        <p className="text-xs text-text-muted mt-0.5">Ձեր Պատվերներն Այստեղ կբերել</p>
+        <p className="text-xs text-text-muted mt-0.5">Ձեր Պատվերներն Այստեղ կլինեն</p>
       </div>
     </div>
   );

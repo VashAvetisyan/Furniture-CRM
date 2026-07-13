@@ -6,6 +6,9 @@ export interface PaymentDTO {
   amount:  string;
   paidAt:  string;
   note:    string;
+  // Backend field is snake_case here despite the rest of this object being
+  // camelCase (see recordPayment/addPayment below) — keep the raw key name.
+  payment_method?: 'cash' | 'card';
 }
 
 export interface TaskPaymentDTO {
@@ -447,9 +450,11 @@ export const taskService = {
   },
 
   recordPayment(taskId: string, userId: number, data: { amount: string; note?: string; paidAt?: string; paymentMethod?: 'cash' | 'card' }) {
+    // Same payment_method (snake_case) quirk as addPayment above.
+    const { paymentMethod, ...rest } = data;
     return request<PaymentDTO>(
       `/tasks/${taskId}/assignees/${userId}/payments/`,
-      { method: 'POST', body: data },
+      { method: 'POST', body: { ...rest, payment_method: paymentMethod } },
     );
   },
 
@@ -465,7 +470,14 @@ export const taskService = {
   },
 
   addPayment(taskId: string, data: CreateTaskPaymentRequest) {
-    return request<TaskPaymentDTO>(`/tasks/${taskId}/payments/`, { method: 'POST', body: data });
+    // Backend field is payment_method (snake_case) despite the rest of this
+    // payload being camelCase — sending paymentMethod verbatim gets silently
+    // dropped and the payment defaults to cash regardless of what was picked.
+    const { paymentMethod, ...rest } = data;
+    return request<TaskPaymentDTO>(`/tasks/${taskId}/payments/`, {
+      method: 'POST',
+      body: { ...rest, payment_method: paymentMethod },
+    });
   },
 
   removePayment(taskId: string, paymentId: number) {

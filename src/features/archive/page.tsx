@@ -56,11 +56,13 @@ export default function ArchivePage() {
   const [panelOpen, setPanelOpen]                   = useState(false);
 
   const { data: tasksResponse, isLoading } = useQuery<TaskListResponse>({
-    queryKey: ['tasks', 'archive'],
-    queryFn:  taskService.getArchived,
+    queryKey: isEmployee ? ['tasks', 'my'] : ['tasks', 'archive'],
+    queryFn:  isEmployee ? taskService.getMyTasks : taskService.getArchived,
     staleTime: 30_000,
   });
-  const tasksData = tasksResponse?.results ?? [];
+  // getMyTasks returns every section for the employee — narrow to archive here,
+  // same as how the Active page narrows the same query down to section 'active'.
+  const tasksData = (tasksResponse?.results ?? []).filter((t) => !isEmployee || (t.section as string) === 'archive');
 
   const { data: employeesData } = useQuery({
     queryKey:  ['employees'],

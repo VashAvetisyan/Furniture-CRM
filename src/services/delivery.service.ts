@@ -129,7 +129,7 @@ export const deliveryService = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail ?? 'Ֆայdelays բeptum ձaxolvec');
+      throw new Error(err.detail ?? 'Ֆայլի բեռնումը ձախողվեց');
     }
     return res.json() as Promise<DeliveryDTO>;
   },

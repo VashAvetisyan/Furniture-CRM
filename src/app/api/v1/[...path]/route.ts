@@ -83,7 +83,20 @@ function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
 }
 
+// Local-only dev fallback (see .env.local) for working offline without the real
+// backend. Must never be reachable once deployed — it ships a fake director JWT
+// and fake data, so gate it out of production regardless of NEXT_PUBLIC_API_URL.
+function blockedInProduction(): NextResponse | null {
+  if (process.env.NODE_ENV === 'production') {
+    return new NextResponse(null, { status: 404 });
+  }
+  return null;
+}
+
 export async function GET(req: NextRequest, { params }: { params: { path: string[] } }) {
+  const blocked = blockedInProduction();
+  if (blocked) return blocked;
+
   const path = params.path.join('/');
   const { searchParams } = req.nextUrl;
 
@@ -182,6 +195,9 @@ export async function GET(req: NextRequest, { params }: { params: { path: string
 }
 
 export async function POST(req: NextRequest, { params }: { params: { path: string[] } }) {
+  const blocked = blockedInProduction();
+  if (blocked) return blocked;
+
   const path = params.path.join('/');
 
   // ── Task attachments (POST upload — multipart) ────────────────────────────
@@ -310,6 +326,9 @@ export async function POST(req: NextRequest, { params }: { params: { path: strin
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { path: string[] } }) {
+  const blocked = blockedInProduction();
+  if (blocked) return blocked;
+
   const path = params.path.join('/');
   const body = await req.json().catch(() => ({}));
 
@@ -374,6 +393,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { path: stri
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { path: string[] } }) {
+  const blocked = blockedInProduction();
+  if (blocked) return blocked;
+
   const path = params.path.join('/');
 
   if (/^clients\/\d+\/$/.test(path)) {
