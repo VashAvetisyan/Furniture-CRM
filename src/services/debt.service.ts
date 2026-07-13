@@ -52,11 +52,63 @@ export interface SupplierDebtListResponse {
   results:  SupplierDebtDTO[];
 }
 
+export interface EmployeeDebtDTO {
+  id:              number;
+  employee:        string | { id: string; name: string };
+  employee_name?:  string;
+  title?:          string;
+  amount:          string;
+  paid_amount?:    string;
+  balance?:        string;
+  due_date?:       string | null;
+  status:          'pending' | 'partial' | 'paid' | 'overdue' | string;
+  status_display?: string;
+  notes?:          string;
+  created_by?:     number;
+  created_at?:     string;
+}
+
+export interface EmployeeDebtListResponse {
+  count:    number;
+  next:     string | null;
+  previous: string | null;
+  results:  EmployeeDebtDTO[];
+}
+
+export interface OtherDebtDTO {
+  id:                 number;
+  party_name:         string;
+  direction:           'owed_to_us' | 'we_owe' | string;
+  direction_display?: string;
+  title?:             string;
+  amount:             string;
+  paid_amount?:       string;
+  balance?:           string;
+  due_date?:          string | null;
+  status:             'pending' | 'partial' | 'paid' | 'overdue' | string;
+  status_display?:    string;
+  notes?:             string;
+  created_by?:        number;
+  created_at?:        string;
+}
+
+export interface OtherDebtListResponse {
+  count:    number;
+  next:     string | null;
+  previous: string | null;
+  results:  OtherDebtDTO[];
+}
+
 export interface DebtSummary {
   clients_unpaid_total?:   string;
   suppliers_unpaid_total?: string;
+  employees_unpaid_total?: string;
   total_unpaid?:           string;
   clients_count?:          number;
+  clients?:                { total?: string; paid?: string; unpaid?: string };
+  suppliers?:              { total?: string; paid?: string; unpaid?: string };
+  employees?:              { total?: string; paid?: string; unpaid?: string };
+  other?:                  { owed_to_us?: { total?: string; paid?: string; unpaid?: string }; we_owe?: { total?: string; paid?: string; unpaid?: string } };
   [key: string]: unknown;
 }
 
@@ -153,5 +205,81 @@ export const supplierDebtService = {
 
   getPayments(id: number) {
     return request<DebtPayment[]>(`/suppliers/debts/${id}/payments/`);
+  },
+};
+
+export const employeeDebtService = {
+  getAll(params?: { status?: string; employee?: string }) {
+    const q = new URLSearchParams();
+    if (params?.status)   q.set('status',   params.status);
+    if (params?.employee) q.set('employee', params.employee);
+    const qs = q.toString();
+    return request<EmployeeDebtListResponse | EmployeeDebtDTO[]>(`/debts/employees/${qs ? '?' + qs : ''}`);
+  },
+
+  create(data: {
+    employee:  string;
+    title?:    string;
+    amount:    string;
+    status?:   string;
+    due_date?: string;
+    notes?:    string;
+  }) {
+    return request<EmployeeDebtDTO>('/debts/employees/', { method: 'POST', body: data });
+  },
+
+  update(id: number, data: Partial<EmployeeDebtDTO>) {
+    return request<EmployeeDebtDTO>(`/debts/employees/${id}/`, { method: 'PATCH', body: data });
+  },
+
+  delete(id: number) {
+    return request<void>(`/debts/employees/${id}/`, { method: 'DELETE' });
+  },
+
+  pay(id: number, data: { amount: string; paid_at?: string; note?: string; payment_method?: 'cash' | 'card' }) {
+    return request<DebtPayment>(`/debts/employees/${id}/pay/`, { method: 'POST', body: data });
+  },
+
+  getPayments(id: number) {
+    return request<DebtPayment[]>(`/debts/employees/${id}/payments/`);
+  },
+};
+
+export const otherDebtService = {
+  getAll(params?: { status?: string; direction?: string; search?: string }) {
+    const q = new URLSearchParams();
+    if (params?.status)    q.set('status',    params.status);
+    if (params?.direction) q.set('direction', params.direction);
+    if (params?.search)    q.set('search',    params.search);
+    const qs = q.toString();
+    return request<OtherDebtListResponse | OtherDebtDTO[]>(`/debts/other/${qs ? '?' + qs : ''}`);
+  },
+
+  create(data: {
+    party_name: string;
+    direction:  'owed_to_us' | 'we_owe';
+    title?:     string;
+    amount:     string;
+    status?:    string;
+    due_date?:  string;
+    notes?:     string;
+  }) {
+    return request<OtherDebtDTO>('/debts/other/', { method: 'POST', body: data });
+  },
+
+  update(id: number, data: Partial<OtherDebtDTO>) {
+    return request<OtherDebtDTO>(`/debts/other/${id}/`, { method: 'PATCH', body: data });
+  },
+
+  delete(id: number) {
+    return request<void>(`/debts/other/${id}/`, { method: 'DELETE' });
+  },
+
+  pay(id: number, data: { amount: string; paid_at?: string; note?: string; payment_method?: 'cash' | 'card' }) {
+    return request<DebtPayment>(`/debts/other/${id}/pay/`, { method: 'POST', body: data });
+  },
+
+  getPayments(id: number) {
+    return request<DebtPayment[]>(`/debts/other/${id}/payments/`);
   },
 };

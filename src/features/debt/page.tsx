@@ -5,6 +5,7 @@ import { SkTable, SkListRow } from '@/components/ui/Skeleton';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { debtService, type ClientDebtDTO, type DebtPayment } from '@/services/debt.service';
 import { clientService, type ClientDTO } from '@/services/client.service';
+import { toLocalDateInput } from '@/lib/date';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -45,20 +46,37 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
 
 const INPUT_CLS = 'w-full px-3 py-2 text-sm rounded-xl border border-crm-border outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white transition-all';
 
+// ── Pay method toggle ────────────────────────────────────────────────────────
+
+function PayMethodToggle({ value, onChange }: { value: 'cash' | 'card'; onChange: (v: 'cash' | 'card') => void }) {
+  return (
+    <div className="flex gap-2">
+      {(['cash', 'card'] as const).map((m) => (
+        <button key={m} type="button" onClick={() => onChange(m)}
+          className={`flex-1 py-2 text-sm font-semibold rounded-xl border transition-colors ${value === m ? 'border-primary bg-primary/5 text-primary' : 'border-crm-border text-text-muted hover:bg-gray-50'}`}>
+          {m === 'cash' ? 'Կանխիկ' : 'Բանկային Կարտ'}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ── Pay Modal ─────────────────────────────────────────────────────────────────
 
 function PayModal({ debt, onClose }: { debt: ClientDebtDTO; onClose: () => void }) {
   const qc = useQueryClient();
-  const [amount, setAmount] = useState('');
-  const [paidAt, setPaidAt] = useState(new Date().toISOString().slice(0, 10));
+  const [amount, setAmount] = useState(debt.balance ?? debt.amount ?? '');
+  const [paidAt, setPaidAt] = useState(toLocalDateInput(new Date()));
+  const [method, setMethod] = useState<'cash' | 'card'>('cash');
   const [note,   setNote]   = useState('');
   const [err,    setErr]    = useState('');
 
   const { mutate, isPending } = useMutation({
     mutationFn: () => debtService.pay(debt.id, {
-      amount:  amount.trim(),
-      paid_at: paidAt || undefined,
-      note:    note.trim() || undefined,
+      amount:         amount.trim(),
+      paid_at:        paidAt || undefined,
+      payment_method: method,
+      note:           note.trim() || undefined,
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['debts'] });
@@ -87,6 +105,10 @@ function PayModal({ debt, onClose }: { debt: ClientDebtDTO; onClose: () => void 
               min="0"
               autoFocus
             />
+          </div>
+          <div>
+            <label className="text-[11px] font-bold text-text-muted uppercase tracking-wide mb-1.5 block">Վճարման եղանակ</label>
+            <PayMethodToggle value={method} onChange={setMethod} />
           </div>
           <div>
             <label className="text-[11px] font-bold text-text-muted uppercase tracking-wide mb-1.5 block">Վճ. Ամսաթիվ</label>

@@ -234,6 +234,47 @@ export interface DashboardCall {
   phone:      string;
 }
 
+export interface DashboardDeliveryStats {
+  pending:     number;
+  scheduled:   number;
+  in_transit:  number;
+  delivered:   number;
+  failed:      number;
+}
+
+export interface DashboardStatusBreakdown {
+  status_id:   number;
+  status_name: string;
+  color:       string;
+  count:       number;
+}
+
+export interface DashboardWorkload {
+  employee_id: number;
+  name:        string;
+  color:       string;
+  initials:    string;
+  active:      number;
+  done:        number;
+  total:       number;
+}
+
+export interface DashboardActivity {
+  id:         number;
+  event_type: string;
+  title:      string;
+  message:    string;
+  created_at: string;
+}
+
+export interface DashboardMyTask {
+  taskId:     string;
+  name:       string;
+  deadline:   string;
+  statusName: string;
+  priority:   string;
+}
+
 export interface DashboardDTO {
   total_active_tasks:     number;
   overdue_tasks:          number;
@@ -246,6 +287,12 @@ export interface DashboardDTO {
   upcoming_calls_today:   number;
   upcoming_deadlines:     DashboardDeadline[];
   today_calls:            DashboardCall[];
+  active_tasks_value?:      string;
+  delivery_today?:          DashboardDeliveryStats;
+  task_status_breakdown?:   DashboardStatusBreakdown[];
+  workload?:                DashboardWorkload[];
+  recent_activity?:         DashboardActivity[];
+  my_tasks?:                DashboardMyTask[];
 }
 
 export interface AttachmentDTO {
@@ -399,7 +446,7 @@ export const taskService = {
     );
   },
 
-  recordPayment(taskId: string, userId: number, data: { amount: string; note?: string; paidAt?: string }) {
+  recordPayment(taskId: string, userId: number, data: { amount: string; note?: string; paidAt?: string; paymentMethod?: 'cash' | 'card' }) {
     return request<PaymentDTO>(
       `/tasks/${taskId}/assignees/${userId}/payments/`,
       { method: 'POST', body: data },

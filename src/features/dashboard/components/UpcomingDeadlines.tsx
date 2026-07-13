@@ -37,7 +37,7 @@ export default function UpcomingDeadlines({
     <div className="bg-white rounded-2xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-bold text-dark">Մոտ ժամկետները</h2>
-        <Link href="/tasks" className="text-xs text-primary font-medium hover:underline">
+        <Link href="/tasks/active" className="text-xs text-primary font-medium hover:underline">
           Տեսնել բոլորը →
         </Link>
       </div>

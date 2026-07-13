@@ -167,7 +167,7 @@ function EmployeeListRow({
 
   return (
     <div
-      onClick={() => router.push(`/employees/${employee.id}`)}
+      onClick={() => router.push(`/staff/employees/${employee.id}`)}
       className="bg-white rounded-2xl border border-crm-border hover:shadow-md transition-shadow cursor-pointer"
     >
 
@@ -189,7 +189,7 @@ function EmployeeListRow({
             </button>
             {open && (
               <div className="absolute right-0 top-8 z-20 bg-white border border-crm-border rounded-xl shadow-lg py-1 w-max">
-                <Link href={`/employees/${employee.id}`} className="flex items-center gap-2 px-3 py-2 text-sm text-dark hover:bg-gray-50 transition-colors whitespace-nowrap">
+                <Link href={`/staff/employees/${employee.id}`} className="flex items-center gap-2 px-3 py-2 text-sm text-dark hover:bg-gray-50 transition-colors whitespace-nowrap">
                   <svg className="w-4 h-4 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                   Տեսնել Պրոֆիլն
                 </Link>
@@ -241,7 +241,7 @@ function EmployeeListRow({
             </button>
             {open && (
               <div className="absolute right-0 top-8 z-20 bg-white border border-crm-border rounded-xl shadow-lg py-1 w-max">
-                <Link href={`/employees/${employee.id}`} className="flex items-center gap-2 px-3 py-2 text-sm text-dark hover:bg-gray-50 transition-colors whitespace-nowrap">
+                <Link href={`/staff/employees/${employee.id}`} className="flex items-center gap-2 px-3 py-2 text-sm text-dark hover:bg-gray-50 transition-colors whitespace-nowrap">
                   <svg className="w-4 h-4 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                   Տեսնել Պրոֆիլն
                 </Link>
@@ -266,7 +266,7 @@ function EmployeeActivityCard({ employee }: { employee: EmployeeListItem }) {
   const vacationBg = employee.onVacation ? 'bg-amber-50 border-amber-100' : 'bg-white border-crm-border';
 
   return (
-    <Link href={`/employees/${employee.id}`}>
+    <Link href={`/staff/employees/${employee.id}`}>
       <div className={`${vacationBg} rounded-2xl border p-5 flex flex-col items-center text-center hover:shadow-md transition-shadow cursor-pointer`}>
         {/* Avatar with optional vacation indicator */}
         <div className="relative mb-3">

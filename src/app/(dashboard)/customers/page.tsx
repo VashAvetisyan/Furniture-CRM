@@ -1,5 +1,5 @@
-import CustomersPage from '@/features/customers/page';
+import { redirect } from 'next/navigation';
 
-export default function Page() {
-  return <CustomersPage />;
+export default function CustomersRedirect() {
+  redirect('/contacts/customers');
 }

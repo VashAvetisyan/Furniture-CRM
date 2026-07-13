@@ -1,2 +1,5 @@
-import PayrollPage from '@/features/payroll/page';
-export default PayrollPage;
+import { redirect } from 'next/navigation';
+
+export default function PayrollRedirect() {
+  redirect('/staff/payroll');
+}

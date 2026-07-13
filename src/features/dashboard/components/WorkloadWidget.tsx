@@ -1,20 +1,18 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { employeeService } from '@/services/employee.service';
-import Avatar from '@/components/ui/Avatar';
 import Link from 'next/link';
+import Avatar from '@/components/ui/Avatar';
 import { SkBlock } from '@/components/ui/Skeleton';
+import type { DashboardWorkload } from '@/services/task.service';
 
-export default function WorkloadWidget() {
-  const { data: empData, isLoading } = useQuery({
-    queryKey: ['employees'],
-    queryFn:  employeeService.getAll,
-  });
-
-  const employees = (empData?.data ?? [])
-    .filter((e) => !e.onVacation)
-    .sort((a, b) => b.tasks.total - a.tasks.total);
+export default function WorkloadWidget({
+  workload,
+  isLoading,
+}: {
+  workload?: DashboardWorkload[];
+  isLoading?: boolean;
+}) {
+  const employees = [...(workload ?? [])].sort((a, b) => b.total - a.total);
 
   return (
     <div className="bg-white rounded-2xl p-5 shadow-sm">
@@ -30,7 +28,7 @@ export default function WorkloadWidget() {
           </div>
           <h2 className="text-base font-bold text-dark">Կատարողների բեռ</h2>
         </div>
-        <Link href="/employees" className="text-xs text-primary font-medium hover:underline">
+        <Link href="/staff/employees" className="text-xs text-primary font-medium hover:underline">
           Բոլորը →
         </Link>
       </div>
@@ -59,12 +57,12 @@ export default function WorkloadWidget() {
       ) : (
         <div className="space-y-3.5">
           {employees.map((emp) => {
-            const active  = emp.tasks.inProgress;
-            const done    = emp.tasks.done;
-            const pending = Math.max(0, emp.tasks.total - active - done);
-            const total   = emp.tasks.total;
+            const active  = emp.active;
+            const done    = emp.done;
+            const pending = Math.max(0, emp.total - active - done);
+            const total   = emp.total;
             return (
-              <div key={emp.id} className="flex items-center gap-2.5">
+              <div key={emp.employee_id} className="flex items-center gap-2.5">
                 <Avatar color={emp.color} initials={emp.initials} size="sm" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1.5">

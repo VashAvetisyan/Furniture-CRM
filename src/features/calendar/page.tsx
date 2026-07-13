@@ -9,6 +9,7 @@ import TaskDetailModal from '@/features/projects/components/TaskDetailModal';
 import CallHistoryModal from '@/features/calls/components/CallHistoryModal';
 import type { Task } from '@/features/projects/types';
 import type { CalendarEvent } from './types';
+import { toLocalDateInput } from '@/lib/date';
 
 const MONTH_MAP: Record<string, number> = {
   Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
@@ -49,7 +50,7 @@ function taskToEvent(task: Task): CalendarEvent | null {
 
 function clientCallsToEvents(client: ClientDTO): CalendarEvent[] {
   const name  = `${client.first_name} ${client.last_name}`.trim() || client.phone;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = toLocalDateInput(new Date());
   return (client.calls ?? [])
     .filter((call) => /^\d{4}-\d{2}-\d{2}/.test(call.date))
     .map((call) => {

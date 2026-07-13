@@ -1,3 +1,5 @@
-import ArchivePage from '@/features/archive/page';
+import { redirect } from 'next/navigation';
 
-export default ArchivePage;
+export default function ArchiveRedirect() {
+  redirect('/tasks/archive');
+}

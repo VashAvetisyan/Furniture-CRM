@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores';
+import { toLocalDateTimeInput } from '@/lib/date';
 import {
   supplierService,
   supplierDebtService,
@@ -298,7 +299,7 @@ function PayMethodToggle({ value, onChange }: { value: 'cash' | 'card'; onChange
       {(['cash', 'card'] as const).map((m) => (
         <button key={m} type="button" onClick={() => onChange(m)}
           className={`flex-1 py-2 text-sm font-semibold rounded-xl border transition-colors ${value === m ? 'border-primary bg-primary/5 text-primary' : 'border-crm-border text-text-muted hover:bg-gray-50'}`}>
-          {m === 'cash' ? 'Կանկի' : 'Բանկային Կարտ'}
+          {m === 'cash' ? 'Կանխիկ' : 'Քարտով'}
         </button>
       ))}
     </div>
@@ -312,7 +313,7 @@ function DebtModal({ suppliers, onClose }: { suppliers: SupplierDTO[]; onClose: 
   const [supplierId, setSupplierId] = useState('');
   const [title,      setTitle]      = useState('');
   const [amount,     setAmount]     = useState('');
-  const [dueDate,    setDueDate]    = useState('');
+  const [dueDate,    setDueDate]    = useState(() => toLocalDateTimeInput(new Date()));
   const [notes,      setNotes]      = useState('');
   const [err,        setErr]        = useState('');
 
@@ -361,7 +362,7 @@ function DebtModal({ suppliers, onClose }: { suppliers: SupplierDTO[]; onClose: 
             </div>
             <div>
               <label className="text-xs font-semibold text-text-muted mb-1.5 block">Կատարման ամսաթիվ</label>
-              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
+              <input type="datetime-local" value={dueDate} onChange={(e) => setDueDate(e.target.value)}
                 className="w-full px-3 py-2.5 text-sm rounded-xl border border-crm-border focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
           </div>
@@ -390,14 +391,15 @@ function DebtModal({ suppliers, onClose }: { suppliers: SupplierDTO[]; onClose: 
 
 function PayDebtModal({ debt, onClose }: { debt: SupplierDebtDTO; onClose: () => void }) {
   const qc = useQueryClient();
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(() => debt.balance ?? debt.amount ?? '');
   const [method, setMethod] = useState<'cash' | 'card'>('cash');
   const [note,   setNote]   = useState('');
+  const [paidAt, setPaidAt] = useState(() => toLocalDateTimeInput(new Date()));
 
   const { mutate, isPending } = useMutation({
     mutationFn: () => supplierDebtService.pay(debt.id, {
       amount:         amount.trim(),
-      paid_at:        new Date().toISOString().slice(0, 10),
+      paid_at:        paidAt || undefined,
       payment_method: method,
       note:           note.trim() || undefined,
     }),
@@ -408,7 +410,7 @@ function PayDebtModal({ debt, onClose }: { debt: SupplierDebtDTO; onClose: () =>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[360px] mx-4 flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-crm-border">
-          <h2 className="text-base font-bold text-dark">Վչարում</h2>
+          <h2 className="text-base font-bold text-dark">Վճարում</h2>
           <button onClick={onClose} className="text-text-muted hover:text-dark"><XIcon /></button>
         </div>
         <div className="px-6 py-5 flex flex-col gap-4">
@@ -423,8 +425,13 @@ function PayDebtModal({ debt, onClose }: { debt: SupplierDebtDTO; onClose: () =>
               className="w-full px-3 py-2.5 text-sm rounded-xl border border-crm-border focus:outline-none focus:ring-2 focus:ring-primary/30" />
           </div>
           <div>
-            <label className="text-xs font-semibold text-text-muted mb-1.5 block">Վչարման եղանակ</label>
+            <label className="text-xs font-semibold text-text-muted mb-1.5 block">Վճարման եղանակ</label>
             <PayMethodToggle value={method} onChange={setMethod} />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-muted mb-1.5 block">Վճ. Ամսաթիվ</label>
+            <input type="datetime-local" value={paidAt} onChange={(e) => setPaidAt(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm rounded-xl border border-crm-border focus:outline-none focus:ring-2 focus:ring-primary/30" />
           </div>
           <div>
             <label className="text-xs font-semibold text-text-muted mb-1.5 block">Նկարագրություն</label>
@@ -668,7 +675,6 @@ function DebtsTab({ suppliers }: { suppliers: SupplierDTO[] }) {
           <div className="sm:hidden flex flex-col gap-3">
             {data.map((debt) => {
               const st = DEBT_STATUS[debt.status] ?? { label: debt.status_display ?? debt.status, cls: 'bg-gray-100 text-gray-600' };
-              const overdue = debt.due_date && debt.status !== 'paid' && new Date(debt.due_date) < new Date();
               return (
                 <div key={debt.id} className="bg-white rounded-2xl border border-crm-border p-4 shadow-sm">
                   <div className="flex items-start justify-between mb-3">
@@ -692,9 +698,9 @@ function DebtsTab({ suppliers }: { suppliers: SupplierDTO[] }) {
                       <p className={`font-bold ${parseFloat(debt.balance ?? '0') > 0 ? 'text-error' : 'text-success'}`}>{fmt(debt.balance)}</p>
                     </div>
                   </div>
-                  {debt.due_date && (
-                    <p className={`text-xs mb-3 ${overdue ? 'text-error font-semibold' : 'text-text-muted'}`}>
-                      {overdue && '⚠ '}Կատարման ամսաթիվ: {fmtDate(debt.due_date)}
+                  {debt.created_at && (
+                    <p className="text-xs mb-3 text-text-muted">
+                      Ամսաթիվ: {fmtDate(debt.created_at)}
                     </p>
                   )}
                   <div className="flex gap-1.5 justify-end pt-2 border-t border-crm-border">
@@ -720,13 +726,12 @@ function DebtsTab({ suppliers }: { suppliers: SupplierDTO[] }) {
               <div style={{ minWidth: '960px' }}>
                 <div className="grid gap-3 px-4 py-2.5 bg-gray-50/80 border-b border-crm-border"
                   style={{ gridTemplateColumns: 'minmax(160px,1fr) 160px 100px 100px 110px 130px 110px 120px' }}>
-                  {['Մատակարար', 'Վերնագիր', 'Գումար', 'Վճարված', 'Մնացած', 'Կատարման ամսաթիվ', '', ''].map((h, i) => (
+                  {['Մատակարար', 'Վերնագիր', 'Գումար', 'Վճարված', 'Մնացած', 'Ամսաթիվ', '', ''].map((h, i) => (
                     <span key={i} className="text-[11px] font-bold text-text-muted uppercase tracking-wide whitespace-nowrap">{h}</span>
                   ))}
                 </div>
                 {data.map((debt) => {
                   const st = DEBT_STATUS[debt.status] ?? { label: debt.status_display ?? debt.status, cls: 'bg-gray-100 text-gray-600' };
-                  const overdue = debt.due_date && debt.status !== 'paid' && new Date(debt.due_date) < new Date();
                   return (
                     <div key={debt.id}
                       className="grid gap-3 px-4 py-3 border-b border-crm-border last:border-0 hover:bg-primary/[0.02] transition-colors items-center"
@@ -736,8 +741,8 @@ function DebtsTab({ suppliers }: { suppliers: SupplierDTO[] }) {
                       <span className="text-sm font-bold text-dark">{fmt(debt.amount)}</span>
                       <span className="text-sm text-success font-semibold">{fmt(debt.paid_amount)}</span>
                       <span className={`text-sm font-bold ${parseFloat(debt.balance ?? '0') > 0 ? 'text-error' : 'text-success'}`}>{fmt(debt.balance)}</span>
-                      <span className={`text-xs ${overdue ? 'text-error font-semibold' : 'text-dark'}`}>
-                        {overdue && '⚠ '}{fmtDate(debt.due_date)}
+                      <span className="text-xs text-dark">
+                        {fmtDate(debt.created_at)}
                       </span>
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full text-center whitespace-nowrap ${st.cls}`}>{st.label}</span>
                       <div className="flex items-center gap-1.5 justify-end pr-1">

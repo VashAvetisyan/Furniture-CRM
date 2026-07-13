@@ -7,6 +7,7 @@ import type { TransactionDTO, TransactionCategory, TransactionDirection, CreateT
 import { transferService } from '@/services/transfer.service';
 import type { TransferDTO, TransferDirection } from '@/services/transfer.service';
 import { useAuthStore } from '@/stores';
+import { toLocalDateTimeInput } from '@/lib/date';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -27,7 +28,7 @@ const CATEGORIES = Object.entries(CATEGORY_LABELS) as [TransactionCategory, stri
 const fmt = (n: number) => n.toLocaleString('hy-AM') + ' ֏';
 const fmtAmt = (s: string) => parseFloat(s) || 0;
 const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('hy-AM', { day: '2-digit', month: 'short', year: 'numeric' });
+  new Date(iso).toLocaleString('hy-AM', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 // ── Creatable category combobox ───────────────────────────────────────────────
 
@@ -116,8 +117,8 @@ function TransferModal({ onClose, editing }: { onClose: () => void; editing?: Tr
   const [direction, setDirection] = useState<TransferDirection>(editing?.direction ?? 'cash_to_card');
   const [amount, setAmount]       = useState(editing ? String(parseFloat(editing.amount)) : '');
   const [date, setDate]           = useState(() => {
-    if (editing?.transferDate) return editing.transferDate.slice(0, 16);
-    return new Date().toISOString().slice(0, 16);
+    if (editing?.transferDate) return toLocalDateTimeInput(new Date(editing.transferDate));
+    return toLocalDateTimeInput(new Date());
   });
   const [note, setNote] = useState(editing?.note ?? '');
 
@@ -234,7 +235,7 @@ function AddModal({ onClose, customCategories }: { onClose: () => void; customCa
   const [amount,        setAmount]        = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('card');
   const [desc,          setDesc]          = useState('');
-  const [date,          setDate]          = useState(() => new Date().toISOString().slice(0, 16));
+  const [date,          setDate]          = useState(() => toLocalDateTimeInput(new Date()));
 
   const { mutate, isPending } = useMutation({
     mutationFn: (data: CreateTransactionRequest) => financeService.create(data),
@@ -826,14 +827,14 @@ export default function FinancePage() {
             </div>
           ) : (
             <div className="bg-white rounded-2xl border border-crm-border overflow-hidden">
-              <div className="hidden sm:grid grid-cols-[110px_1fr_160px_44px_44px] gap-4 px-5 py-3 border-b border-crm-border bg-gray-50 sticky top-0">
+              <div className="hidden sm:grid grid-cols-[150px_1fr_160px_44px_44px] gap-4 px-5 py-3 border-b border-crm-border bg-gray-50 sticky top-0">
                 <span className="text-xs font-semibold text-text-muted">Ամsaθив</span>
                 <span className="text-xs font-semibold text-text-muted">Ծanотum</span>
                 <span className="text-xs font-semibold text-text-muted text-center">Ուγγuθyun</span>
                 <span className="text-xs font-semibold text-text-muted text-right col-span-2">Gumar</span>
               </div>
               {transferData.results.map((tr) => (
-                <div key={tr.id} className="grid grid-cols-[1fr_auto] sm:grid-cols-[110px_1fr_160px_44px_44px] gap-3 sm:gap-4 px-5 py-3.5 border-b border-crm-border last:border-b-0 hover:bg-gray-50 transition-colors items-center">
+                <div key={tr.id} className="grid grid-cols-[1fr_auto] sm:grid-cols-[150px_1fr_160px_44px_44px] gap-3 sm:gap-4 px-5 py-3.5 border-b border-crm-border last:border-b-0 hover:bg-gray-50 transition-colors items-center">
                   <span className="hidden sm:block text-xs text-text-muted whitespace-nowrap">
                     {fmtDate(tr.transferDate)}
                   </span>
@@ -931,7 +932,7 @@ export default function FinancePage() {
 
             {/* Desktop table */}
             <div className="hidden sm:block overflow-x-auto">
-              <div className="grid grid-cols-[110px_1fr_110px_130px_130px_44px] gap-4 px-5 py-3 border-b border-crm-border bg-gray-50 sticky top-0 min-w-[700px]">
+              <div className="grid grid-cols-[150px_1fr_110px_130px_130px_44px] gap-4 px-5 py-3 border-b border-crm-border bg-gray-50 sticky top-0 min-w-[740px]">
                 <span className="text-xs font-semibold text-text-muted">Ամսաթիվ</span>
                 <span className="text-xs font-semibold text-text-muted">Բաժին / Նկարագրություն</span>
                 <span className="text-xs font-semibold text-text-muted text-center">Վճ. տեսակ</span>
@@ -942,7 +943,7 @@ export default function FinancePage() {
               {transactions.map((tx) => (
                 <div
                   key={tx.id}
-                  className="grid grid-cols-[110px_1fr_110px_110px_130px_44px] gap-4 px-5 py-3.5 border-b border-crm-border last:border-b-0 hover:bg-gray-50 transition-colors items-center min-w-[700px]"
+                  className="grid grid-cols-[150px_1fr_110px_110px_130px_44px] gap-4 px-5 py-3.5 border-b border-crm-border last:border-b-0 hover:bg-gray-50 transition-colors items-center min-w-[740px]"
                 >
                   <span className="text-xs text-text-muted whitespace-nowrap">{fmtDate(tx.transaction_date)}</span>
                   <div className="min-w-0">

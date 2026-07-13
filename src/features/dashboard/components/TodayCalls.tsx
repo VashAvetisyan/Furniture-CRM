@@ -15,7 +15,7 @@ export default function TodayCalls({
     <div className="bg-white rounded-2xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-base font-bold text-dark">Այսօրվա զանգեր</h2>
-        <Link href="/calls" className="text-xs text-primary font-medium hover:underline">
+        <Link href="/contacts/calls" className="text-xs text-primary font-medium hover:underline">
           Բոլոր զանգերը →
         </Link>
       </div>

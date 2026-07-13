@@ -3,10 +3,53 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { positionService, type PositionDTO } from '@/services/position.service';
-import { accessService } from '@/services/access.service';
+import { accessService, type PageItem } from '@/services/access.service';
 import { taskStatusService } from '@/services/task.service';
 import { companySettingsService } from '@/services/companySettings.service';
 import { PlusIcon, CloseIcon } from '@/components/icons';
+
+// ── Page tree helper ────────────────────────────────────────────────────────────
+
+function buildPageTree<T extends PageItem>(pages: T[]): { page: T; children: T[] }[] {
+  const bySlug   = new Map(pages.map((p) => [p.slug, p]));
+  const byParent = new Map<string, T[]>();
+
+  pages.forEach((p) => {
+    if (p.parent && bySlug.has(p.parent)) {
+      const arr = byParent.get(p.parent) ?? [];
+      arr.push(p);
+      byParent.set(p.parent, arr);
+    }
+  });
+
+  return pages
+    .filter((p) => !p.parent || !bySlug.has(p.parent))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map((page) => ({
+      page,
+      children: (byParent.get(page.slug) ?? []).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    }));
+}
+
+// Builds slug -> direct-children-slugs and slug -> parent-slug maps, so toggling
+// a page can cascade: enabling a page also enables its whole ancestor chain,
+// disabling a page also disables its whole descendant subtree.
+function buildPageRelations<T extends PageItem>(pages: T[]) {
+  const bySlug    = new Map(pages.map((p) => [p.slug, p]));
+  const parentOf  = new Map<string, string>();
+  const childrenOf = new Map<string, string[]>();
+
+  pages.forEach((p) => {
+    if (p.parent && bySlug.has(p.parent)) {
+      parentOf.set(p.slug, p.parent);
+      const arr = childrenOf.get(p.parent) ?? [];
+      arr.push(p.slug);
+      childrenOf.set(p.parent, arr);
+    }
+  });
+
+  return { parentOf, childrenOf };
+}
 
 // ── Toggle ────────────────────────────────────────────────────────────────────
 
@@ -134,10 +177,11 @@ function AccessPanel({ position }: { position: PositionDTO }) {
   const qc = useQueryClient();
   const [pending, setPending] = useState<Record<string, boolean>>({});
 
-  const { data: pages = [], isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['position-settings', position.id],
     queryFn:  () => accessService.getPositionSettingsById(position.id),
   });
+  const pages = data?.pages ?? [];
 
   useEffect(() => { setPending({}); }, [position.id]);
 
@@ -145,10 +189,7 @@ function AccessPanel({ position }: { position: PositionDTO }) {
     mutationFn: () =>
       accessService.bulkUpdatePositionSettings(
         position.id,
-        pages.map((p) => {
-          const slug = p.slug ?? p.page_slug ?? '';
-          return { slug, allowed: isAllowed(slug) };
-        }),
+        pages.map((p) => ({ slug: p.slug, allowed: isAllowed(p.slug) })),
       ),
     onSuccess: () => {
       setPending({});
@@ -156,24 +197,48 @@ function AccessPanel({ position }: { position: PositionDTO }) {
     },
   });
 
+  const { mutate: reset, isPending: resetting } = useMutation({
+    mutationFn: () => accessService.resetPositionSettings(position.id),
+    onSuccess: () => {
+      setPending({});
+      qc.invalidateQueries({ queryKey: ['position-settings', position.id] });
+    },
+  });
+
   const hasPending = Object.keys(pending).length > 0;
+  const { parentOf, childrenOf } = buildPageRelations(pages);
 
   function savedAllowed(slug: string) {
-    return pages.find((p) => (p.slug ?? p.page_slug) === slug)?.allowed ?? false;
+    return pages.find((p) => p.slug === slug)?.allowed ?? false;
   }
   function isAllowed(slug: string) {
     return slug in pending ? pending[slug] : savedAllowed(slug);
   }
   function toggle(slug: string, val: boolean) {
     setPending((prev) => {
-      if (val === savedAllowed(slug)) {
-        const next = { ...prev };
-        delete next[slug];
-        return next;
-      }
-      return { ...prev, [slug]: val };
+      const next = { ...prev };
+      applyCascade(next, slug, val, new Set());
+      return next;
     });
   }
+  // Enabling a page also enables its whole ancestor chain (a child needs an
+  // accessible parent) AND its whole descendant subtree (opening a page opens
+  // its sub-pages too). Disabling a page also disables its whole descendant subtree.
+  function applyCascade(next: Record<string, boolean>, slug: string, val: boolean, visited: Set<string>) {
+    if (visited.has(slug)) return;
+    visited.add(slug);
+
+    if (val === savedAllowed(slug)) delete next[slug];
+    else next[slug] = val;
+
+    if (val) {
+      const parent = parentOf.get(slug);
+      if (parent) applyCascade(next, parent, true, visited);
+    }
+    (childrenOf.get(slug) ?? []).forEach((child) => applyCascade(next, child, val, visited));
+  }
+
+  const tree = buildPageTree(pages.filter((p) => !p.is_director_only));
 
   return (
     <div className="flex-1 bg-white rounded-2xl shadow-sm p-6 flex flex-col min-h-0">
@@ -182,6 +247,146 @@ function AccessPanel({ position }: { position: PositionDTO }) {
           <h2 className="text-base font-bold text-dark">{position.name}</h2>
           <p className="text-xs text-text-muted mt-0.5">
             Ընտրեք այն էջերը, որոնց այս պաշտոնն իրավունք ունի
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => reset()}
+            disabled={resetting || saving}
+            className="px-3 py-1.5 rounded-xl text-sm font-semibold text-text-muted hover:text-error hover:bg-error/5 transition-all disabled:opacity-40"
+          >
+            {resetting ? '...' : 'Զրոյացնել'}
+          </button>
+          <button
+            onClick={() => save()}
+            disabled={!hasPending || saving}
+            className={`px-4 py-1.5 rounded-xl text-sm font-semibold transition-all ${
+              hasPending && !saving
+                ? 'bg-primary text-white hover:bg-primary-hover shadow-sm'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            {saving ? 'Պահպանում...' : 'Պահպանել'}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto space-y-2 mt-5 pr-1">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-32 text-text-muted text-sm">
+            Բեռնվում է...
+          </div>
+        ) : pages.length === 0 ? (
+          <p className="text-sm text-text-muted text-center py-10">Էջեր չկան</p>
+        ) : (
+          tree.map(({ page, children }) => (
+            <div key={page.slug} className="flex flex-col gap-2">
+              <PageRow
+                label={page.label}
+                checked={isAllowed(page.slug)}
+                dirty={page.slug in pending}
+                onChange={(v) => toggle(page.slug, v)}
+              />
+              {children.length > 0 && (
+                <div className="pl-5 flex flex-col gap-2 border-l-2 border-gray-100 ml-2">
+                  {children.map((child) => (
+                    <PageRow
+                      key={child.slug}
+                      label={child.label}
+                      checked={isAllowed(child.slug)}
+                      dirty={child.slug in pending}
+                      onChange={(v) => toggle(child.slug, v)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PageRow({
+  label, checked, dirty, onChange,
+}: { label: string; checked: boolean; dirty: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div
+      className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${
+        dirty ? 'border-primary/40 bg-primary/5' : 'border-crm-border hover:border-gray-300'
+      }`}
+    >
+      <p className="text-sm font-medium text-dark">{label}</p>
+      <Toggle checked={checked} onChange={onChange} />
+    </div>
+  );
+}
+
+// ── Company-wide access panel ──────────────────────────────────────────────────
+
+function CompanyAccessPanel() {
+  const qc = useQueryClient();
+  const [pending, setPending] = useState<Record<string, boolean>>({});
+
+  const { data: pages = [], isLoading } = useQuery({
+    queryKey: ['company-page-settings'],
+    queryFn:  accessService.getCompanySettings,
+  });
+
+  const { mutate: save, isPending: saving } = useMutation({
+    mutationFn: () =>
+      accessService.bulkUpdateCompanySettings(
+        pages.map((p) => ({ slug: p.slug, enabled: isEnabled(p.slug) })),
+      ),
+    onSuccess: () => {
+      setPending({});
+      qc.invalidateQueries({ queryKey: ['company-page-settings'] });
+    },
+  });
+
+  const hasPending = Object.keys(pending).length > 0;
+  const { parentOf, childrenOf } = buildPageRelations(pages);
+
+  function savedEnabled(slug: string) {
+    return pages.find((p) => p.slug === slug)?.enabled ?? false;
+  }
+  function isEnabled(slug: string) {
+    return slug in pending ? pending[slug] : savedEnabled(slug);
+  }
+  function toggle(slug: string, val: boolean) {
+    setPending((prev) => {
+      const next = { ...prev };
+      applyCascade(next, slug, val, new Set());
+      return next;
+    });
+  }
+  // Enabling a page also enables its whole ancestor chain (a child needs an
+  // accessible parent) AND its whole descendant subtree (opening a page opens
+  // its sub-pages too). Disabling a page also disables its whole descendant subtree.
+  function applyCascade(next: Record<string, boolean>, slug: string, val: boolean, visited: Set<string>) {
+    if (visited.has(slug)) return;
+    visited.add(slug);
+
+    if (val === savedEnabled(slug)) delete next[slug];
+    else next[slug] = val;
+
+    if (val) {
+      const parent = parentOf.get(slug);
+      if (parent) applyCascade(next, parent, true, visited);
+    }
+    (childrenOf.get(slug) ?? []).forEach((child) => applyCascade(next, child, val, visited));
+  }
+
+  const tree = buildPageTree(pages);
+
+  return (
+    <div className="flex-1 bg-white rounded-2xl shadow-sm p-6 flex flex-col min-h-0">
+      <div className="flex items-center justify-between mb-1">
+        <div>
+          <h2 className="text-base font-bold text-dark">Ընկերության հասանելիություն</h2>
+          <p className="text-xs text-text-muted mt-0.5">
+            Անջատված էջերը հասանելի չեն ոչ մի աշխատողի, անկախ պաշտոնի կարգավորումներից
           </p>
         </div>
         <button
@@ -205,26 +410,29 @@ function AccessPanel({ position }: { position: PositionDTO }) {
         ) : pages.length === 0 ? (
           <p className="text-sm text-text-muted text-center py-10">Էջեր չկան</p>
         ) : (
-          pages
-            .filter((p) => !p.is_director_only)
-            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-            .map((page) => {
-              const slug    = page.slug ?? page.page_slug ?? '';
-              const label   = page.label ?? page.page_label ?? slug;
-              const allowed = isAllowed(slug);
-              const dirty   = slug in pending;
-              return (
-                <div
-                  key={slug}
-                  className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-colors ${
-                    dirty ? 'border-primary/40 bg-primary/5' : 'border-crm-border hover:border-gray-300'
-                  }`}
-                >
-                  <p className="text-sm font-medium text-dark">{label}</p>
-                  <Toggle checked={allowed} onChange={(v) => toggle(slug, v)} />
+          tree.map(({ page, children }) => (
+            <div key={page.slug} className="flex flex-col gap-2">
+              <PageRow
+                label={page.is_director_only ? `${page.label} (միայն տնօրեն)` : page.label}
+                checked={isEnabled(page.slug)}
+                dirty={page.slug in pending}
+                onChange={(v) => toggle(page.slug, v)}
+              />
+              {children.length > 0 && (
+                <div className="pl-5 flex flex-col gap-2 border-l-2 border-gray-100 ml-2">
+                  {children.map((child) => (
+                    <PageRow
+                      key={child.slug}
+                      label={child.is_director_only ? `${child.label} (միայն տնօրեն)` : child.label}
+                      checked={isEnabled(child.slug)}
+                      dirty={child.slug in pending}
+                      onChange={(v) => toggle(child.slug, v)}
+                    />
+                  ))}
                 </div>
-              );
-            })
+              )}
+            </div>
+          ))
         )}
       </div>
     </div>
@@ -493,7 +701,8 @@ function TaskSettingsPanel() {
   const qc = useQueryClient();
   const [pct,  setPct]  = useState('');
   const [days, setDays] = useState('');
-  const [saved, setSaved] = useState<'pct' | 'days' | null>(null);
+  const [invoiceNotes, setInvoiceNotes] = useState('');
+  const [saved, setSaved] = useState<'pct' | 'days' | 'notes' | null>(null);
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['company-settings'],
@@ -505,6 +714,7 @@ function TaskSettingsPanel() {
     if (!settings) return;
     setPct(String(settings.advance_payment_percent));
     setDays(String(settings.default_completion_days));
+    setInvoiceNotes(settings.invoice_notes ?? '');
   }, [settings]);
 
   const { mutate: updatePct, isPending: savingPct } = useMutation({
@@ -527,6 +737,16 @@ function TaskSettingsPanel() {
     },
   });
 
+  const { mutate: updateInvoiceNotes, isPending: savingNotes } = useMutation({
+    mutationFn: (val: string) =>
+      companySettingsService.update({ invoice_notes: val }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['company-settings'] });
+      setSaved('notes');
+      setTimeout(() => setSaved(null), 2000);
+    },
+  });
+
   function savePct() {
     const val = parseFloat(pct);
     if (isNaN(val) || val < 0 || val > 100) return;
@@ -537,6 +757,10 @@ function TaskSettingsPanel() {
     const val = parseInt(days);
     if (isNaN(val) || val < 0) return;
     updateDays(val);
+  }
+
+  function saveInvoiceNotes() {
+    updateInvoiceNotes(invoiceNotes);
   }
 
   if (isLoading) {
@@ -628,16 +852,44 @@ function TaskSettingsPanel() {
           </p>
         )}
       </SettingRow>
+
+      {/* Invoice notes */}
+      <SettingRow
+        label="Invoice նշումներ"
+        hint="Այս տեքստը կավելացվի պատվերի invoice-ի (հաշիվ-ապրանքագրի) ներքևում"
+      >
+        <div className="flex flex-col gap-3">
+          <textarea
+            value={invoiceNotes}
+            onChange={(e) => { setInvoiceNotes(e.target.value); setSaved(null); }}
+            rows={4}
+            placeholder="Շնորհակալություն ենք հայտնում Ձեզ ընտրելու համար։..."
+            className="w-full px-3 py-2 border border-crm-border rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors resize-none"
+          />
+          <button
+            onClick={saveInvoiceNotes}
+            disabled={savingNotes || saved === 'notes'}
+            className={`self-start px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              saved === 'notes'
+                ? 'bg-success/10 text-success'
+                : 'bg-primary text-white hover:bg-primary-hover disabled:opacity-40'
+            }`}
+          >
+            {savingNotes ? '...' : saved === 'notes' ? 'Պահպանվեց ✓' : 'Պահպանել'}
+          </button>
+        </div>
+      </SettingRow>
     </div>
   );
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-type Tab = 'positions' | 'statuses' | 'tasks';
+type Tab = 'positions' | 'access' | 'statuses' | 'tasks';
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'positions', label: 'Պաշտոն' },
+  { key: 'access',    label: 'Ընկերության հասանելիություն' },
   { key: 'statuses',  label: 'Կատարման կարգավիճակներ' },
   { key: 'tasks',     label: 'Պատվերներ' },
 ];
@@ -709,6 +961,10 @@ export default function SettingsPage() {
               </p>
             </div>
           )}
+        </div>
+      ) : tab === 'access' ? (
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          <CompanyAccessPanel />
         </div>
       ) : tab === 'statuses' ? (
         <div className="flex-1 flex min-h-0 overflow-hidden">

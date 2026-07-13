@@ -206,7 +206,7 @@ export default function SalariesPage() {
           const pct = emp.total > 0 ? (emp.paid / emp.total) * 100 : 0;
           const isFullyPaid = emp.unpaid === 0;
           return (
-            <Link key={emp.id} href={`/employees/${emp.id}?tab=salary`}>
+            <Link key={emp.id} href={`/staff/employees/${emp.id}?tab=salary`}>
               <div className="bg-white rounded-2xl border border-crm-border p-4 flex flex-col gap-3 hover:border-primary/30 transition-colors">
                 <div className="flex items-center gap-3">
                   <Avatar color={emp.color} initials={emp.initials} size="sm" />
@@ -270,7 +270,7 @@ export default function SalariesPage() {
               return (
                 <tr key={emp.id} className="border-b border-crm-border/40 last:border-b-0 hover:bg-gray-50/60 transition-colors">
                   <td className="px-5 py-4">
-                    <Link href={`/employees/${emp.id}?tab=salary`} className="flex items-center gap-3 group w-fit">
+                    <Link href={`/staff/employees/${emp.id}?tab=salary`} className="flex items-center gap-3 group w-fit">
                       <Avatar color={emp.color} initials={emp.initials} size="sm" />
                       <div className="flex flex-col gap-0.5 min-w-0">
                         <span className="text-sm font-semibold text-dark group-hover:text-primary transition-colors leading-none">{emp.name}</span>

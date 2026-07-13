@@ -45,12 +45,12 @@ const NAV: NavEntry[] = [
   { type: 'link',  label: 'Գլխավոր',      href: '/dashboard',  Icon: DashboardIcon  },
   {
     type: 'group',
-    key:  'orders',
+    key:  'tasks',
     label: 'Պատվերներ',
     Icon: ProjectsIcon,
     children: [
-      { label: 'Ակտիվ',  href: '/tasks',   Icon: ProjectsIcon },
-      { label: 'Արխիվ',  href: '/archive', Icon: ArchiveIcon  },
+      { label: 'Ակտիվ',  href: '/tasks/active', Icon: ProjectsIcon },
+      { label: 'Արխիվ',  href: '/tasks/archive', Icon: ArchiveIcon  },
     ],
   },
   { type: 'link',  label: 'Օրացույց',     href: '/calendar',   Icon: CalendarIcon   },
@@ -60,8 +60,8 @@ const NAV: NavEntry[] = [
     label: 'Կոնտակտներ',
     Icon: ContactsIcon,
     children: [
-      { label: 'Զանգեր',        href: '/calls',     Icon: CallsIcon      },
-      { label: 'Հաճախորդներ',   href: '/customers', Icon: CustomersIcon  },
+      { label: 'Զանգեր',        href: '/contacts/calls',     Icon: CallsIcon      },
+      { label: 'Հաճախորդներ',   href: '/contacts/customers', Icon: CustomersIcon  },
     ],
   },
   { type: 'link',  label: 'Մուտք / Ելք',  href: '/finance',    Icon: FinanceIcon    },
@@ -71,8 +71,8 @@ const NAV: NavEntry[] = [
     label: 'Արտադրություն',
     Icon: WorkshopIcon,
     children: [
-      { label: 'Պահեստ',        href: '/warehouse', Icon: WarehouseIcon },
-      { label: 'Արտադրամաս',    href: '/workshops',  Icon: WorkshopIcon  },
+      { label: 'Պահեստ',        href: '/production/warehouse', Icon: WarehouseIcon },
+      { label: 'Արտադրամաս',    href: '/production/workshops',  Icon: WorkshopIcon  },
     ],
   },
   {
@@ -81,9 +81,9 @@ const NAV: NavEntry[] = [
     label: 'Կադրեր',
     Icon: EmployeesIcon,
     children: [
-      { label: 'Աշխատողներ',  href: '/employees', Icon: EmployeesIcon },
-      { label: 'Աշխատավարձ',  href: '/salaries',  Icon: SalariesIcon  },
-      { label: 'Բանաձևներ',   href: '/payroll',   Icon: FinanceIcon   },
+      { label: 'Աշխատողներ',  href: '/staff/employees', Icon: EmployeesIcon },
+      { label: 'Աշխատավարձ',  href: '/staff/salaries',  Icon: SalariesIcon  },
+      { label: 'Բանաձևներ',   href: '/staff/payroll',   Icon: FinanceIcon   },
     ],
   },
   {
@@ -92,8 +92,10 @@ const NAV: NavEntry[] = [
     label: 'Պարտքեր',
     Icon: InvoiceIcon,
     children: [
-      { label: 'Հաճախորդներ', href: '/debt',           Icon: CustomersIcon },
+      { label: 'Հաճախորդներ', href: '/debt/customers',  Icon: CustomersIcon },
       { label: 'Մատակարարներ',   href: '/debt/suppliers', Icon: WarehouseIcon },
+      { label: 'Աշխատողներ',  href: '/debt/employees',  Icon: EmployeesIcon },
+      { label: 'Այլ',         href: '/debt/other',      Icon: FinanceIcon   },
     ],
   },
   { type: 'link',  label: 'Կատալոգ',      href: '/catalog',   Icon: WarehouseIcon  },
@@ -200,14 +202,20 @@ function LinkNavItem({ label, href, Icon, active }: {
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
+// Backend slugs are flat kebab-case IDs mirroring the URL path with '/' replaced by '-'
+// (e.g. href '/tasks/active' -> slug 'tasks-active').
+function hrefToSlug(href: string): string {
+  return href.replace(/^\//, '').replace(/\//g, '-');
+}
+
 // Match a nav entry against allowed backend slugs.
-// For groups: check the group key itself (e.g. "contacts") OR any child href slug.
+// For groups: check the group key itself (e.g. "debt") OR any child slug.
 function pageAllowed(entry: NavEntry, allowedSlugs: Set<string>): boolean {
   if (entry.type === 'link') {
-    return allowedSlugs.has(entry.href.replace(/^\//, ''));
+    return allowedSlugs.has(hrefToSlug(entry.href));
   }
   return allowedSlugs.has(entry.key) ||
-    entry.children.some((c) => allowedSlugs.has(c.href.replace(/^\//, '')));
+    entry.children.some((c) => allowedSlugs.has(hrefToSlug(c.href)));
 }
 
 export default function Sidebar() {

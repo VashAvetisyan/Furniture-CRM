@@ -7,6 +7,7 @@ import type { NamedItemDTO, TaskCommentDTO, AttachmentDTO } from '@/services/tas
 import { deliveryService } from '@/services/delivery.service';
 import { debtService } from '@/services/debt.service';
 import { mediaUrl } from '@/lib/api';
+import { toLocalDateTimeInput } from '@/lib/date';
 import { employeeService } from '@/services/employee.service';
 import { clientService, type ClientDTO } from '@/services/client.service';
 import Avatar from '@/components/ui/Avatar';
@@ -431,6 +432,114 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
     },
   });
 
+  // Employee stage navigation (mirrors TaskBoard's prev/next arrows): never PATCH
+  // the shared task status directly — mark-started/mark-done, then advance the
+  // shared status to keep the director's board view in sync.
+  const myAssignee    = task.assignees?.find((a) => a.userId === myUserId);
+  const firstStageCol = statuses[0];
+  const secondStageCol = statuses[1];
+  const lastStageCol  = statuses[statuses.length - 1];
+
+  async function postStageComment(statusId: number | undefined, comment?: string) {
+    if (comment && statusId != null) {
+      await taskService.createComment(task.id, { text: comment, task_status_id: statusId });
+    }
+  }
+
+  const { mutate: autoMarkStarted, isPending: isAutoStarting } = useMutation({
+    mutationFn: async (comment?: string) => {
+      if (!myUserId) return;
+      await taskService.markStarted(task.id, myUserId, true);
+      if (secondStageCol) await taskService.update(task.id, { statusId: Number(secondStageCol.id) });
+      await postStageComment(secondStageCol ? Number(secondStageCol.id) : undefined, comment);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'my'] });
+      refetchComments();
+      setEmployeeStageDirection(null);
+      setEmployeeStageComment('');
+    },
+  });
+
+  const { mutate: autoMarkDone, isPending: isAutoFinishing } = useMutation({
+    mutationFn: async (comment?: string) => {
+      if (!myUserId) return;
+      await taskService.markDone(task.id, myUserId, true);
+      const otherAssignees = task.assignees?.filter((a) => a.userId !== myUserId) ?? [];
+      const allOthersDone  = otherAssignees.every((a) => a.isDone);
+      const targetCol = allOthersDone ? lastStageCol : secondStageCol;
+      if (targetCol) await taskService.update(task.id, { statusId: Number(targetCol.id) });
+      await postStageComment(targetCol ? Number(targetCol.id) : undefined, comment);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'my'] });
+      refetchComments();
+      setEmployeeStageDirection(null);
+      setEmployeeStageComment('');
+    },
+  });
+
+  const { mutate: autoUnmarkDone, isPending: isAutoUnfinishing } = useMutation({
+    mutationFn: async (comment?: string) => {
+      if (!myUserId) return;
+      await taskService.markDone(task.id, myUserId, false);
+      if (secondStageCol) await taskService.update(task.id, { statusId: Number(secondStageCol.id) });
+      await postStageComment(secondStageCol ? Number(secondStageCol.id) : undefined, comment);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'my'] });
+      refetchComments();
+      setEmployeeStageDirection(null);
+      setEmployeeStageComment('');
+    },
+  });
+
+  const { mutate: autoUnmarkStarted, isPending: isAutoUnstarting } = useMutation({
+    mutationFn: async (comment?: string) => {
+      if (!myUserId) return;
+      await taskService.markStarted(task.id, myUserId, false);
+      if (firstStageCol) await taskService.update(task.id, { statusId: Number(firstStageCol.id) });
+      await postStageComment(firstStageCol ? Number(firstStageCol.id) : undefined, comment);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', 'my'] });
+      refetchComments();
+      setEmployeeStageDirection(null);
+      setEmployeeStageComment('');
+    },
+  });
+
+  const isMovingStage = isAutoStarting || isAutoFinishing || isAutoUnfinishing || isAutoUnstarting;
+
+  const [employeeStageDirection, setEmployeeStageDirection] = useState<'next' | 'prev' | null>(null);
+  const [employeeStageComment,   setEmployeeStageComment]   = useState('');
+
+  function employeeStageNext() {
+    if (!myAssignee) return;
+    setEmployeeStageDirection('next');
+    setEmployeeStageComment('');
+  }
+  function employeeStagePrev() {
+    if (!myAssignee) return;
+    setEmployeeStageDirection('prev');
+    setEmployeeStageComment('');
+  }
+  function confirmEmployeeStage() {
+    if (!myAssignee || !employeeStageDirection) return;
+    const comment = employeeStageComment.trim() || undefined;
+    if (employeeStageDirection === 'next') {
+      if (!myAssignee.isStarted) autoMarkStarted(comment);
+      else if (!myAssignee.isDone) autoMarkDone(comment);
+    } else {
+      if (myAssignee.isDone) autoUnmarkDone(comment);
+      else if (myAssignee.isStarted) autoUnmarkStarted(comment);
+    }
+  }
+
   const [client,          setClient]   = useState('');
   const [clientId,        setClientId] = useState(task.client          ?? '');
   const [phone,           setPhone]    = useState(task.phone           ?? '');
@@ -728,18 +837,22 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                     clients={clients}
                   />
                 </EditField>
-                <EditField label="Հեռախոսահամար">
-                  <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls()} />
-                </EditField>
+                {!isEmployee && (
+                  <EditField label="Հեռախոսահամար">
+                    <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls()} />
+                  </EditField>
+                )}
                 <EditField label="Ընդունման ամսաթիվ">
                   <input type="date" value={acceptanceDate} onChange={(e) => setAccDate(e.target.value)} className={inputCls()} />
                 </EditField>
                 <EditField label="Առաքման հասցե">
                   <input value={deliveryAddress} onChange={(e) => setAddress(e.target.value)} className={inputCls()} />
                 </EditField>
-                <EditField label="Անձնագրի Սերիա">
-                  <input value={passportSeries} onChange={(e) => setPassport(e.target.value)} placeholder="AB 1234567..." className={inputCls()} />
-                </EditField>
+                {!isEmployee && (
+                  <EditField label="Անձնագրի Սերիա">
+                    <input value={passportSeries} onChange={(e) => setPassport(e.target.value)} placeholder="AB 1234567..." className={inputCls()} />
+                  </EditField>
+                )}
               </div>
               <EditField label="Հաճախորդի նշումներ">
                 <textarea value={clientNotes} onChange={(e) => setClientNotes(e.target.value)} rows={2} className={inputCls() + " resize-none mt-2"} />
@@ -748,10 +861,10 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <MetaCell label="Անուն Ազգանուն">{resolveClientName(task.client)}</MetaCell>
-                <MetaCell label="Հեռախոսահամար">{task.phone || '—'}</MetaCell>
+                {!isEmployee && <MetaCell label="Հեռախոսահամար">{task.phone || '—'}</MetaCell>}
                 <MetaCell label="Ընդունման ամսաթիվը">{task.acceptanceDate ? new Date(task.acceptanceDate).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'}</MetaCell>
                 <MetaCell label="Առաքման հասցե">{task.deliveryAddress || '—'}</MetaCell>
-                <MetaCell label="Անձնագրերի սերիա">{linkedClient?.id_document || task.passportSeries || "—"}</MetaCell>
+                {!isEmployee && <MetaCell label="Անձնագրերի սերիա">{linkedClient?.id_document || task.passportSeries || "—"}</MetaCell>}
                 <MetaCell label="Հաճախորդի նշումներ">{linkedClient?.description || task.description || "—"}</MetaCell>
               </div>
             )}
@@ -801,6 +914,26 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
             )}
           </div>
 
+          {/* ── Նշումներ ── */}
+          <div className="flex flex-col gap-3">
+            <SectionTitle icon="📝">Նշումներ</SectionTitle>
+            {editing ? (
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                placeholder="Ավելացնել նշում..."
+                className={inputCls() + ' resize-none'}
+              />
+            ) : (
+              (task.notes)
+                ? <p className="text-sm text-dark leading-relaxed bg-gray-50 rounded-xl p-3 border border-gray-100">
+                    {task.notes}
+                  </p>
+                : <p className="text-sm text-text-muted italic">—</p>
+            )}
+          </div>
+
           {/* ── Arzhek ── */}
           {!isEmployee && <div className="flex flex-col gap-3">
             <SectionTitle icon="💰">Արժեք</SectionTitle>
@@ -825,7 +958,7 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                     <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Վճարումներ</p>
                     {!addingPayment && (
                       <button
-                        onClick={() => { setAddingPayment(true); setNewPayDate(new Date().toISOString().slice(0, 16)); }}
+                        onClick={() => { setAddingPayment(true); setNewPayDate(toLocalDateTimeInput(new Date())); }}
                         className="flex items-center gap-1 text-xs text-primary hover:text-primary-hover font-semibold transition-colors"
                       >
                         <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1065,7 +1198,7 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                                   onClick={() => doMarkStarted({ userId: a.userId, isStarted: true })}
                                   className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-40"
                                 >
-                                  Սկсел
+                                  Սկսել
                                 </button>
                               )}
                               {a.isStarted && !a.isDone && canAct && (
@@ -1074,7 +1207,7 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                                   onClick={() => doMarkDone({ userId: a.userId, isDone: true })}
                                   className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-success/10 text-success hover:bg-success/20 transition-colors disabled:opacity-40"
                                 >
-                                  Ավарtel
+                                  Ավարտել
                                 </button>
                               )}
                               {a.isPaid && Number(a.salaryAmount) > 0 && (
@@ -1119,7 +1252,100 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                 {/* Stage selector */}
                 <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
                   <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2">Փուլ</p>
-                  {statuses.length > 0 ? (
+                  {statuses.length === 0 ? (
+                    <span className="text-sm text-dark font-medium">{String(task.status)}</span>
+                  ) : isEmployee && task.section !== 'archive' ? (
+                    (() => {
+                      const displayCol = myAssignee?.isDone ? lastStageCol : myAssignee?.isStarted ? secondStageCol : firstStageCol;
+                      const canPrev = !!myAssignee && (myAssignee.isStarted || myAssignee.isDone);
+                      const canNext = !!myAssignee && !(myAssignee.isStarted && myAssignee.isDone);
+                      const prevLabel = myAssignee?.isDone ? secondStageCol?.name : firstStageCol?.name;
+                      const nextLabel = !myAssignee?.isStarted ? secondStageCol?.name : lastStageCol?.name;
+                      const pendingLabel = employeeStageDirection === 'next' ? nextLabel : employeeStageDirection === 'prev' ? prevLabel : null;
+                      return (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <button
+                              disabled={!canPrev || isMovingStage || employeeStageDirection !== null}
+                              onClick={employeeStagePrev}
+                              className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg text-text-muted hover:bg-primary/8 hover:text-primary disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="15 18 9 12 15 6"/>
+                              </svg>
+                              <span className="truncate max-w-[90px]">{prevLabel}</span>
+                            </button>
+                            <span className="px-3 py-1 text-xs rounded-full font-semibold bg-primary text-white ring-2 ring-primary/30 truncate max-w-[120px]">
+                              {displayCol?.name ?? '—'}
+                            </span>
+                            <button
+                              disabled={!canNext || isMovingStage || employeeStageDirection !== null}
+                              onClick={employeeStageNext}
+                              className="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg text-text-muted hover:bg-primary/8 hover:text-primary disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <span className="truncate max-w-[90px]">{nextLabel}</span>
+                              <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="9 18 15 12 9 6"/>
+                              </svg>
+                            </button>
+                          </div>
+                          {stageComments.length > 0 && (
+                            <div className="flex flex-col gap-0 border border-crm-border/40 rounded-xl overflow-hidden mt-1">
+                              {stageComments.map((c) => (
+                                <div key={c.id} className="flex items-start gap-2.5 px-3 py-2 text-xs bg-white border-b border-crm-border/30 last:border-b-0">
+                                  {c.taskStatus && (
+                                    <span
+                                      className="flex-shrink-0 px-1.5 py-0.5 rounded-md font-semibold text-[10px] leading-4 mt-px text-white"
+                                      style={{ backgroundColor: c.taskStatus.color }}
+                                    >
+                                      {c.taskStatus.name}
+                                    </span>
+                                  )}
+                                  <span className="flex-1 text-dark leading-5">{c.text}</span>
+                                  <div className="flex-shrink-0 flex items-center gap-1.5 ml-auto">
+                                    <span className="text-[10px] text-text-muted">{c.authorName}</span>
+                                    <span className="text-[10px] text-text-muted/60">
+                                      {new Date(c.createdAt).toLocaleDateString('hy-AM')}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {employeeStageDirection !== null && (
+                            <div className="flex flex-col gap-2 pt-2 border-t border-crm-border/40">
+                              <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">
+                                Մեկնաբանություն · {pendingLabel}
+                              </p>
+                              <textarea
+                                value={employeeStageComment}
+                                onChange={(e) => setEmployeeStageComment(e.target.value)}
+                                rows={2}
+                                placeholder="Ավելացնել մեկնաբանություն..."
+                                className="w-full px-3 py-2 text-sm rounded-xl border border-crm-border outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all bg-white resize-none"
+                              />
+                              <div className="flex gap-2 justify-end">
+                                <button
+                                  onClick={() => { setEmployeeStageDirection(null); setEmployeeStageComment(''); }}
+                                  disabled={isMovingStage}
+                                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-crm-border text-dark hover:bg-gray-50 transition-colors disabled:opacity-50"
+                                >
+                                  Չեղարկել
+                                </button>
+                                <button
+                                  onClick={confirmEmployeeStage}
+                                  disabled={isMovingStage}
+                                  className="px-4 py-1.5 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-60"
+                                >
+                                  {isMovingStage ? '...' : 'Հաստատել'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()
+                  ) : (
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-wrap gap-1.5">
                         {statuses.map((s) => {
@@ -1223,31 +1449,9 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                         </div>
                       )}
                     </div>
-                  ) : (
-                    <span className="text-sm text-dark font-medium">{String(task.status)}</span>
                   )}
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* ── Նшumner ── */}
-          <div className="flex flex-col gap-3">
-            <SectionTitle icon="📝">Նշումներ</SectionTitle>
-            {editing ? (
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                placeholder="Ավելացնել նշում..."
-                className={inputCls() + ' resize-none'}
-              />
-            ) : (
-              (task.notes)
-                ? <p className="text-sm text-dark leading-relaxed bg-gray-50 rounded-xl p-3 border border-gray-100">
-                    {task.notes}
-                  </p>
-                : <p className="text-sm text-text-muted italic">—</p>
             )}
           </div>
 
@@ -1491,7 +1695,7 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                 <input
                   value={sendDeliveryAddr}
                   onChange={(e) => setSendDeliveryAddr(e.target.value)}
-                  placeholder="Hasце..."
+                  placeholder="Հասցե..."
                   className="w-full px-3 py-2 text-sm rounded-xl border border-crm-border outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white"
                 />
               </div>

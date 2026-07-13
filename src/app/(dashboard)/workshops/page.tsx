@@ -1,5 +1,5 @@
-import WorkshopPage from '@/features/workshop/page';
+import { redirect } from 'next/navigation';
 
-export default function Page() {
-  return <WorkshopPage />;
+export default function WorkshopsRedirect() {
+  redirect('/production/workshops');
 }

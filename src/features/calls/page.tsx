@@ -4,14 +4,12 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clientService } from '@/services/client.service';
 import type { ClientDTO, SourceDTO } from '@/services/client.service';
+import { toLocalDateInput, toLocalDateTimeInput } from '@/lib/date';
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
-function todayStr() { return new Date().toISOString().slice(0, 10); }
-function nowDateTimeStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-}
+function todayStr() { return toLocalDateInput(new Date()); }
+function nowDateTimeStr() { return toLocalDateTimeInput(new Date()); }
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('hy-AM', { day: '2-digit', month: 'short', year: 'numeric' });

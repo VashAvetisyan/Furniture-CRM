@@ -1,2 +1,5 @@
-import DebtPage from '@/features/debt/page';
-export default DebtPage;
+import { redirect } from 'next/navigation';
+
+export default function DebtRedirect() {
+  redirect('/debt/customers');
+}

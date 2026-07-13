@@ -7,6 +7,7 @@ import { employeeService } from '@/services/employee.service';
 import { positionService } from '@/services/position.service';
 import Avatar from '@/components/ui/Avatar';
 import { useAuthStore } from '@/stores';
+import { toLocalDateInput } from '@/lib/date';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -16,12 +17,12 @@ function fmt(val: string) {
 }
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalDateInput(new Date());
 }
 
 function firstOfMonth() {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  return toLocalDateInput(new Date(d.getFullYear(), d.getMonth(), 1));
 }
 
 const SCOPE_COLORS: Record<string, string> = {

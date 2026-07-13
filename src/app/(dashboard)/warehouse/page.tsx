@@ -1,5 +1,5 @@
-import WarehousePage from '@/features/warehouse/page';
+import { redirect } from 'next/navigation';
 
-export default function Page() {
-  return <WarehousePage />;
+export default function WarehouseRedirect() {
+  redirect('/production/warehouse');
 }

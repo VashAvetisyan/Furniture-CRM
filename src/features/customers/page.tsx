@@ -9,6 +9,7 @@ import { taskService } from '@/services/task.service';
 import type { TaskDTO } from '@/services/task.service';
 import TaskDetailModal from '@/features/projects/components/TaskDetailModal';
 import type { Task } from '@/features/projects/types';
+import { toLocalDateInput } from '@/lib/date';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -143,7 +144,7 @@ function CallHistoryModal({ client, onClose, onBack }: {
 }) {
   const queryClient = useQueryClient();
   const [note, setNote] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(toLocalDateInput(new Date()));
 
   // Lazily fetched via the dedicated calls-list endpoint instead of relying on the
   // (potentially large) `calls[]` array embedded on the client object.
@@ -164,7 +165,7 @@ function CallHistoryModal({ client, onClose, onBack }: {
       queryClient.invalidateQueries({ queryKey: ['client-calls', client.id] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       setNote('');
-      setDate(new Date().toISOString().slice(0, 10));
+      setDate(toLocalDateInput(new Date()));
     },
   });
 

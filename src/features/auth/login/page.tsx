@@ -48,7 +48,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const data = await authService.login({ username: email.trim().toLowerCase(), password });
+      const data = await authService.login({ username: email, password });
 
       localStorage.setItem('token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
@@ -221,7 +221,7 @@ export default function LoginPage() {
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="youremail@gmail.com"
+                  placeholder="Օգտանուն"
                   required
                   className="w-full px-4 py-3 rounded-xl border border-crm-border bg-white text-sm text-dark placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
                 />

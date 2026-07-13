@@ -9,6 +9,7 @@ import { employeeService, type EmployeeDTO } from '@/services/employee.service';
 import { positionService } from '@/services/position.service';
 import { taskService, type TaskDTO } from '@/services/task.service';
 import { useAuthStore } from '@/stores';
+import { toLocalDateTimeInput } from '@/lib/date';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -377,6 +378,7 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
   const [payAmount, setPayAmount] = useState('');
   const [payNote,   setPayNote]   = useState('');
   const [payDate,   setPayDate]   = useState('');
+  const [payMethod, setPayMethod] = useState<'cash' | 'card'>('cash');
 
   function toggleExpand(id: string) {
     setExpandedIds(prev => {
@@ -395,14 +397,15 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
   }
 
   const { mutate: recordPay, isPending: recording } = useMutation({
-    mutationFn: ({ taskId, userId, amount, note, paidAt }: { taskId: string; userId: number; amount: string; note: string; paidAt: string }) =>
-      taskService.recordPayment(taskId, userId, { amount, note: note || undefined, paidAt: paidAt || undefined }),
+    mutationFn: ({ taskId, userId, amount, note, paidAt, paymentMethod }: { taskId: string; userId: number; amount: string; note: string; paidAt: string; paymentMethod: 'cash' | 'card' }) =>
+      taskService.recordPayment(taskId, userId, { amount, note: note || undefined, paidAt: paidAt || undefined, paymentMethod }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['tasks', employeeId] });
       setOpenId(null);
       setPayNote('');
       setPayDate('');
+      setPayMethod('cash');
     },
   });
 
@@ -448,20 +451,21 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
     const remaining = Math.max(0, salary - paid);
     setPayAmount(String(remaining > 0 ? remaining : salary));
     setPayNote('');
-    setPayDate(new Date().toISOString().slice(0, 16));
+    setPayDate(toLocalDateTimeInput(new Date()));
+    setPayMethod('cash');
     setOpenId(t.id ?? null);
   }
 
   function submitPay(t: TaskDTO) {
     const assignee = getAssignee(t);
     if (!assignee || !t.id) return;
-    recordPay({ taskId: t.id, userId: assignee.userId, amount: payAmount, note: payNote, paidAt: payDate });
+    recordPay({ taskId: t.id, userId: assignee.userId, amount: payAmount, note: payNote, paidAt: payDate, paymentMethod: payMethod });
   }
 
   const tasksWithSalary = tasks.filter((t) => getSalary(t) > 0);
 
   async function payAllSelected() {
-    const now = new Date().toISOString().slice(0, 16);
+    const now = toLocalDateTimeInput(new Date());
     const targets = tasksWithSalary.filter(t => t.id && selectedIds.has(t.id) && !isPaid(t));
     if (targets.length === 0) return;
     setBulkPaying(true);
@@ -471,7 +475,7 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
         if (!assignee || !t.id) return Promise.resolve();
         const remaining = Math.max(0, getSalary(t) - getTotalPaid(t));
         if (remaining <= 0) return Promise.resolve();
-        return taskService.recordPayment(t.id, assignee.userId, { amount: String(remaining), paidAt: now });
+        return taskService.recordPayment(t.id, assignee.userId, { amount: String(remaining), paidAt: now, paymentMethod: 'cash' });
       }));
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['tasks', employeeId] });
@@ -614,7 +618,7 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                         <p className="text-sm font-bold text-success">{totalPaidForTask.toLocaleString('hy-AM')} ֏</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-[10px] text-text-muted">Մնացord</p>
+                        <p className="text-[10px] text-text-muted">Մնացորդ</p>
                         <p className={`text-sm font-bold ${taskPaid ? 'text-success' : 'text-warning'}`}>
                           {Math.max(0, salary - totalPaidForTask).toLocaleString('hy-AM')} ֏
                         </p>
@@ -655,6 +659,18 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                             <input type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-crm-border outline-none focus:border-primary bg-white" placeholder="0 ֏" />
                             <input type="text" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="Nishum..." className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-crm-border outline-none focus:border-primary bg-white" />
                           </div>
+                          <div className="flex rounded-lg overflow-hidden border border-crm-border">
+                            {(['cash', 'card'] as const).map((m) => (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => setPayMethod(m)}
+                                className={`flex-1 py-1.5 text-xs font-semibold transition-colors border-r border-crm-border last:border-r-0 ${payMethod === m ? 'bg-primary text-white' : 'bg-white text-text-muted hover:bg-gray-50'}`}
+                              >
+                                {m === 'cash' ? 'Կանխիկ' : 'Քարտով'}
+                              </button>
+                            ))}
+                          </div>
                           <div className="flex gap-2">
                             <input type="datetime-local" value={payDate} onChange={(e) => setPayDate(e.target.value)} className="flex-1 px-2 py-1.5 text-sm rounded-lg border border-crm-border outline-none focus:border-primary bg-white" />
                             <button onClick={() => submitPay(t)} disabled={recording || !payAmount || Number(payAmount) <= 0} className="px-3 py-1.5 bg-success text-white text-xs font-semibold rounded-lg disabled:opacity-50">{recording ? '...' : 'Վճարել'}</button>
@@ -694,7 +710,7 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
               <span className="text-xs font-semibold text-text-muted text-center">Վճարում</span>
             </div>
             {tasksWithSalary.map((t) => {
-              const status   = STATUS_LABELS[t.status] ?? { label: String(t.status), cls: 'bg-gray-100 text-gray-500' };
+              const status   = STATUS_LABELS[t.status] ?? { label: t.statusName ?? String(t.status ?? '—'), cls: 'bg-gray-100 text-gray-500' };
               const taskPaid = isPaid(t);
               const isOpen   = openId === t.id;
               const isExpanded = expandedIds.has(t.id ?? '');
@@ -729,19 +745,19 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                       <p className="text-xs text-text-muted font-mono">{t.taskId ?? t.id}</p>
                       <p className="text-sm font-semibold text-dark truncate mt-0.5">{t.name}</p>
                     </div>
-                    <p className="text-xs text-text-muted">{t.deadline ?? '--'}</p>
-                    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold w-fit ${status.cls}`}>{status.label}</span>
+                    <p className="text-xs text-text-muted">{t.deadline ? fmtDt(t.deadline) : '--'}</p>
+                    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold w-fit ${status.cls}`}>{t.statusName ?? status.label}</span>
                     <div className="flex flex-col items-end gap-0.5">
                       <p className={`text-sm font-bold ${taskPaid ? 'text-success' : isPartial ? 'text-warning' : 'text-dark'}`}>{salary.toLocaleString('hy-AM')} ֏</p>
-                      {isPartial && <p className="text-[10px] text-warning font-medium">{totalPaidForTask.toLocaleString('hy-AM')} ֏ վچарված</p>}
-                      {taskPaid && <span className="text-[10px] text-success font-semibold">Վчарված ✓</span>}
+                      {isPartial && <p className="text-[10px] text-warning font-medium">{totalPaidForTask.toLocaleString('hy-AM')} ֏ Վճարված</p>}
+                      {taskPaid && <span className="text-[10px] text-success font-semibold">Վճարված ✓</span>}
                     </div>
                     <div className="flex justify-center">
                       {taskPaid ? (
-                        <button onClick={() => { openPayForm(t); t.id && setExpandedIds(p => new Set(p).add(t.id!)); }} className="px-3 py-1 text-xs font-medium rounded-full bg-success/10 text-success hover:bg-success/20 transition-colors whitespace-nowrap">Վчарված ✓</button>
+                        <button onClick={() => { openPayForm(t); t.id && setExpandedIds(p => new Set(p).add(t.id!)); }} className="px-3 py-1 text-xs font-medium rounded-full bg-success/10 text-success hover:bg-success/20 transition-colors whitespace-nowrap">Վճարված ✓</button>
                       ) : (
                         <button onClick={() => { if (isOpen) { setOpenId(null); } else { openPayForm(t); t.id && setExpandedIds(p => new Set(p).add(t.id!)); } }} className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors whitespace-nowrap ${isOpen ? 'bg-primary text-white border-primary' : isPartial ? 'border-warning text-warning hover:bg-warning/10' : 'border-crm-border text-text-muted hover:border-primary hover:text-primary'}`}>
-                          {isPartial ? 'Մаснаки' : 'Վчарел'}
+                          {isPartial ? 'Մասնակի' : 'Վճարել'}
                         </button>
                       )}
                     </div>
@@ -765,8 +781,20 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
                           <input type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} className="w-28 px-2 py-1.5 text-sm rounded-lg border border-crm-border outline-none focus:border-primary bg-white" placeholder="0" />
                           <span className="text-xs text-text-muted">֏</span>
                           <input type="text" value={payNote} onChange={(e) => setPayNote(e.target.value)} placeholder="Նշումներ..." className="flex-1 min-w-0 px-2 py-1.5 text-sm rounded-lg border border-crm-border outline-none focus:border-primary bg-white" />
+                          <div className="flex rounded-lg overflow-hidden border border-crm-border flex-shrink-0">
+                            {(['cash', 'card'] as const).map((m) => (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => setPayMethod(m)}
+                                className={`px-2.5 py-1.5 text-xs font-semibold transition-colors border-r border-crm-border last:border-r-0 whitespace-nowrap ${payMethod === m ? 'bg-primary text-white' : 'bg-white text-text-muted hover:bg-gray-50'}`}
+                              >
+                                {m === 'cash' ? 'Կանխիկ' : 'Քարտով'}
+                              </button>
+                            ))}
+                          </div>
                           <input type="datetime-local" value={payDate} onChange={(e) => setPayDate(e.target.value)} className="px-2 py-1.5 text-sm rounded-lg border border-crm-border outline-none focus:border-primary bg-white flex-shrink-0" />
-                          <button onClick={() => submitPay(t)} disabled={recording || !payAmount || Number(payAmount) <= 0} className="px-3 py-1.5 bg-success text-white text-xs font-semibold rounded-lg hover:bg-green-600 disabled:opacity-50 flex-shrink-0">{recording ? '...' : 'Վچарел'}</button>
+                          <button onClick={() => submitPay(t)} disabled={recording || !payAmount || Number(payAmount) <= 0} className="px-3 py-1.5 bg-success text-white text-xs font-semibold rounded-lg hover:bg-green-600 disabled:opacity-50 flex-shrink-0">{recording ? '...' : 'Վճարել'}</button>
                           <button onClick={() => setOpenId(null)} className="w-7 h-7 flex items-center justify-center rounded-lg border border-crm-border text-text-muted hover:text-error text-xs flex-shrink-0">✕</button>
                         </div>
                       )}
@@ -949,7 +977,7 @@ export default function EmployeeProfilePage({ id }: { id: string }) {
       {/* Page header */}
       <div className="flex items-center gap-3 mb-6">
         <Link
-          href="/employees"
+          href="/staff/employees"
           className="p-2 rounded-xl hover:bg-white hover:shadow-sm border border-transparent hover:border-crm-border transition-all text-text-muted hover:text-dark"
         >
           <ArrowLeftIcon />

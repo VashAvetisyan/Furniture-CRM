@@ -21,6 +21,10 @@ body {
   background-attachment: fixed;
 }
 
+.dark body {
+  background-image: none;
+}
+
 /* ── Premium shadow scale — softer, layered, richer depth ────────────────── */
 
 .shadow-sm,  .hover\:shadow-sm:hover  { box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06) !important; }
@@ -42,22 +46,22 @@ button, a, input, select, textarea {
   transition-timing-function: ease;
 }
 
-/* ── Dark mode variables — deep navy palette ─────────────────────────────── */
+/* ── Dark mode variables — true black palette ────────────────────────────── */
 
 .dark {
   /* Backgrounds — 3 clearly distinct layers */
-  --color-light:         #0D1117;   /* page background  */
-  --color-bg-card:       #161B27;   /* cards / panels   */
-  --color-bg-subtle:     #1C2333;   /* table headers, hover rows */
-  --color-bg-input:      #0D1117;   /* inputs           */
+  --color-light:         #000000;   /* page background  */
+  --color-bg-card:       #0A0A0A;   /* cards / panels   */
+  --color-bg-subtle:     #161616;   /* table headers, hover rows */
+  --color-bg-input:      #000000;   /* inputs           */
 
   /* Text */
-  --color-dark:          #E6EDF3;   /* primary text     */
-  --color-text-muted:    #7D8FA8;   /* secondary text   */
+  --color-dark:          #ECECEC;   /* primary text     */
+  --color-text-muted:    #8A8A8A;   /* secondary text   */
 
   /* Borders & accents */
-  --color-crm-border:    #21293F;
-  --color-primary-light: #1F1B3F;   /* primary-tinted bg for chips/badges */
+  --color-crm-border:    #232323;
+  --color-primary-light: #1A1730;   /* primary-tinted bg for chips/badges */
 
   color-scheme: dark;
 }
@@ -68,18 +72,18 @@ button, a, input, select, textarea {
 .dark [class*="bg-white\/"]      { background-color: var(--color-bg-card)   !important; }
 .dark .bg-gray-50,
 .dark .bg-gray-50\/80            { background-color: var(--color-bg-subtle) !important; }
-.dark .bg-gray-100               { background-color: #1C2333 !important; }
-.dark .bg-gray-200               { background-color: #252F42 !important; }
-.dark .hover\:bg-gray-50:hover   { background-color: #1C2333 !important; }
-.dark .hover\:bg-gray-100:hover  { background-color: #252F42 !important; }
+.dark .bg-gray-100               { background-color: #181818 !important; }
+.dark .bg-gray-200               { background-color: #232323 !important; }
+.dark .hover\:bg-gray-50:hover   { background-color: #161616 !important; }
+.dark .hover\:bg-gray-100:hover  { background-color: #232323 !important; }
 
 /* ── Dark: text overrides ────────────────────────────────────────────────── */
 
-.dark .text-gray-700  { color: #C5D0DF !important; }
-.dark .text-gray-600  { color: #B0BDD0 !important; }
-.dark .text-gray-500  { color: #8896AA !important; }
-.dark .text-gray-400  { color: #6B7A90 !important; }
-.dark .text-gray-300  { color: #5D6A7E !important; }
+.dark .text-gray-700  { color: #D4D4D4 !important; }
+.dark .text-gray-600  { color: #B5B5B5 !important; }
+.dark .text-gray-500  { color: #949494 !important; }
+.dark .text-gray-400  { color: #757575 !important; }
+.dark .text-gray-300  { color: #616161 !important; }
 
 /* ── Dark: border overrides ──────────────────────────────────────────────── */
 
@@ -107,7 +111,7 @@ button, a, input, select, textarea {
 .dark .text-cyan-700  { color: #22D3EE !important; }
 
 .dark .bg-gray-100.text-gray-600,
-.dark .bg-gray-100    { background-color: #252F42 !important; }
+.dark .bg-gray-100    { background-color: #232323 !important; }
 
 /* ── Dark: shadow overrides ──────────────────────────────────────────────── */
 
@@ -145,9 +149,9 @@ button, a, input, select, textarea {
 ::-webkit-scrollbar        { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track  { background: transparent; }
 ::-webkit-scrollbar-thumb  { background: #CBD5E1; border-radius: 6px; }
-.dark ::-webkit-scrollbar-thumb { background: #2D3A52; }
+.dark ::-webkit-scrollbar-thumb { background: #2A2A2A; }
 ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
-.dark ::-webkit-scrollbar-thumb:hover { background: #3D4F6E; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #3D3D3D; }
 
 /* ── Base ────────────────────────────────────────────────────────────────── */
 

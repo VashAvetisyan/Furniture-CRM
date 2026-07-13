@@ -1,5 +1,5 @@
-import SalariesPage from '@/features/salaries/page';
+import { redirect } from 'next/navigation';
 
-export default function Page() {
-  return <SalariesPage />;
+export default function SalariesRedirect() {
+  redirect('/staff/salaries');
 }

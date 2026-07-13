@@ -1,2 +1,5 @@
-import CallsPage from '@/features/calls/page';
-export default CallsPage;
+import { redirect } from 'next/navigation';
+
+export default function CallsRedirect() {
+  redirect('/contacts/calls');
+}

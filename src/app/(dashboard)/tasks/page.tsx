@@ -1,3 +1,5 @@
-import ProjectsPage from '@/features/projects/page';
+import { redirect } from 'next/navigation';
 
-export default ProjectsPage;
+export default function TasksPage() {
+  redirect('/tasks/active');
+}

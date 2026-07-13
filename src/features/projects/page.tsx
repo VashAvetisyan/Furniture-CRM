@@ -42,7 +42,7 @@ function inDateRange(iso: string | undefined, from: string, to: string): boolean
 }
 
 export default function TasksPage() {
-  const { role } = useAuthStore();
+  const { role, user } = useAuthStore();
   const isAdmin    = role === 'director';
   const isEmployee = role === 'employee';
 
@@ -88,7 +88,10 @@ export default function TasksPage() {
     return pos;
   }
 
-  const employees = employeesData?.data ?? [];
+  // Directors aren't assignable executors — their own employee record (if the
+  // backend includes one) shouldn't appear in the assignee filter/picker either.
+  const employees = (employeesData?.data ?? [])
+    .filter((emp) => !(isAdmin && (emp.id === user?.id || emp.name === user?.name)));
 
   const sidebarAssignees = useMemo(() => employees.map((emp) => ({
     id:       emp.id,

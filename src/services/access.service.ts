@@ -1,32 +1,26 @@
 import { request } from '@/lib/api';
 
 export interface PageItem {
-  id:     number;
-  slug:   string;
-  label:  string;
-  icon?:  string;
-  order?: number;
+  slug:    string;
+  label:   string;
+  icon?:   string;
+  order?:  number;
+  parent:  string | null;
 }
 
-export interface CompanySetting {
-  id:              number;
-  page:            number | { id: number; slug: string; label: string };
-  page_slug?:      string;
-  page_label?:     string;
-  employee_access: boolean;
+export interface CompanyPageSetting extends PageItem {
+  is_director_only: boolean;
+  enabled:          boolean;
 }
 
-export interface PositionSetting {
-  id?:              number;
-  position_name?:   string;
-  page_slug?:       string;
-  slug?:            string;
-  page_label?:      string;
-  label?:           string;
-  icon?:            string;
-  order?:           number;
-  is_director_only?: boolean;
+export interface PositionPageSetting extends PageItem {
+  is_director_only: boolean;
   allowed:          boolean;
+}
+
+export interface PositionSettingsResponse {
+  position: { id: number; name: string };
+  pages:    PositionPageSetting[];
 }
 
 type AnyList<T> = T[] | { results: T[] } | { pages: T[] };
@@ -48,26 +42,32 @@ export const accessService = {
     return toArray(res);
   },
 
-  async getCompanySettings(): Promise<CompanySetting[]> {
-    const res = await request<AnyList<CompanySetting>>('/access/company-settings/');
+  async getCompanySettings(): Promise<CompanyPageSetting[]> {
+    const res = await request<AnyList<CompanyPageSetting>>('/access/company-settings/');
     return toArray(res);
   },
 
   setCompanySetting(page_slug: string, enabled: boolean) {
-    return request<CompanySetting>('/access/company-settings/', {
+    return request<CompanyPageSetting>('/access/company-settings/', {
       method: 'POST',
-      body: { page_slug, enabled },
+      body:   { page_slug, enabled },
     });
   },
 
-  async getPositionSettings(): Promise<PositionSetting[]> {
-    const res = await request<AnyList<PositionSetting>>('/access/position-settings/');
-    return toArray(res);
+  bulkUpdateCompanySettings(pages: { slug: string; enabled: boolean }[]) {
+    return request<void>('/access/company-settings/bulk/', {
+      method: 'POST',
+      body:   { pages },
+    });
   },
 
-  async getPositionSettingsById(positionId: number): Promise<PositionSetting[]> {
-    const res = await request<AnyList<PositionSetting>>(`/access/position-settings/${positionId}/`);
-    return toArray(res);
+  async getPositionSettings(): Promise<PositionSettingsResponse[]> {
+    const res = await request<AnyList<PositionSettingsResponse>>('/access/position-settings/');
+    return toArray(res as unknown as AnyList<PositionSettingsResponse>);
+  },
+
+  getPositionSettingsById(positionId: number) {
+    return request<PositionSettingsResponse>(`/access/position-settings/${positionId}/`);
   },
 
   bulkUpdatePositionSettings(
@@ -80,10 +80,9 @@ export const accessService = {
     });
   },
 
-  setPositionSetting(position_id: number, page_slug: string, allowed: boolean) {
-    return request<PositionSetting>('/access/position-settings/', {
-      method: 'POST',
-      body: { position_id, page_slug, allowed },
+  resetPositionSettings(positionId: number) {
+    return request<void>(`/access/position-settings/${positionId}/reset/`, {
+      method: 'DELETE',
     });
   },
 };

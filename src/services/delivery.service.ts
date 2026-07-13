@@ -8,6 +8,14 @@ export type DeliveryStatus =
   | 'failed'
   | 'cancelled';
 
+export interface DeliveryImage {
+  id:         number;
+  image:      string;
+  note:       string | null;
+  order:      number;
+  created_at: string;
+}
+
 export interface DeliveryDTO {
   id:             number;
   task:           number;
@@ -25,6 +33,7 @@ export interface DeliveryDTO {
   notes:          string | null;
   recipientName:  string | null;
   proofImageUrl:  string | null;
+  images:         DeliveryImage[];
   created_at:     string;
   updated_at:     string;
 }
@@ -127,5 +136,37 @@ export const deliveryService = {
 
   getStats() {
     return request<DeliveryStats>('/delivery/stats/', { method: 'GET' });
+  },
+
+  async uploadImage(id: number, file: File, note?: string, order?: number): Promise<DeliveryImage> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const form  = new FormData();
+    form.append('image', file);
+    if (note)          form.append('note', note);
+    if (order != null)  form.append('order', String(order));
+    const res = await fetch(`${BASE_URL}/delivery/${id}/images/`, {
+      method:  'POST',
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: form,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail ?? 'Ֆայլը բեռնում ձախողվեց');
+    }
+    return res.json() as Promise<DeliveryImage>;
+  },
+
+  updateImage(id: number, imageId: number, data: { note?: string; order?: number }) {
+    return request<DeliveryImage>(`/delivery/${id}/images/${imageId}/`, {
+      method: 'PATCH',
+      body:   data,
+    });
+  },
+
+  deleteImage(id: number, imageId: number) {
+    return request<void>(`/delivery/${id}/images/${imageId}/`, { method: 'DELETE' });
   },
 };

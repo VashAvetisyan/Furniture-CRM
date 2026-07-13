@@ -8,6 +8,8 @@ import { clientService } from '@/services/client.service';
 import type { ClientDTO, CreateClientRequest } from '@/services/client.service';
 import { catalogService, type ProductDTO } from '@/services/catalog.service';
 import { companySettingsService } from '@/services/companySettings.service';
+import { toLocalDateInput, toLocalDateTimeInput } from '@/lib/date';
+import { useAuthStore } from '@/stores';
 import type { PanelAssignee } from './ProjectsListPanel';
 
 interface AddTaskModalProps {
@@ -200,8 +202,12 @@ function newRow(defaultId = ''): AssigneeRow {
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 
-export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskModalProps) {
+export default function AddTaskModal({ assignees: allAssignees, onClose, onCreated }: AddTaskModalProps) {
   const queryClient = useQueryClient();
+  const currentUser  = useAuthStore((s) => s.user);
+  // Directors aren't assignable executors — the employees list can still include
+  // the director's own record, so exclude them from this picker specifically.
+  const assignees = allAssignees.filter((a) => a.id !== currentUser?.id && a.name !== currentUser?.name);
 
   const { data: clients = [] } = useQuery({
     queryKey: ['clients'],
@@ -252,11 +258,11 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
     if (!days || days <= 0) return '';
     const d = new Date();
     d.setDate(d.getDate() + days);
-    return d.toISOString().slice(0, 10);
+    return toLocalDateInput(d);
   })();
 
   const [client, setClient]           = useState('');
-  const [acceptanceDate, setAccDate]  = useState(() => new Date().toISOString().slice(0, 16));
+  const [acceptanceDate, setAccDate]  = useState(() => toLocalDateTimeInput(new Date()));
   const [deadline, setDeadline]       = useState('');
 
   useEffect(() => {
@@ -270,7 +276,7 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
     if (date && days > 0) {
       const d = new Date(date);
       d.setDate(d.getDate() + days);
-      setDeadline(d.toISOString().slice(0, 10));
+      setDeadline(toLocalDateInput(d));
     }
   }
   const [deliveryAddress, setAddress] = useState('');
@@ -310,7 +316,7 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [price, advancePercent]);
-  const [advanceDate, setAdvanceDate]      = useState(() => new Date().toISOString().slice(0, 16));
+  const [advanceDate, setAdvanceDate]      = useState(() => toLocalDateTimeInput(new Date()));
   const [advanceMethod, setAdvanceMethod]  = useState<'card' | 'cash' | ''>('');
   const [finalPayment, setFinal]           = useState('');
   const [finalDate, setFinalDate]          = useState('');
@@ -343,12 +349,7 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
     setPendingFiles((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  const [assigneeRows, setAssigneeRows] = useState<AssigneeRow[]>([
-    newRow(assignees[0]?.id ?? ''),
-    newRow(),
-    newRow(),
-    newRow(),
-  ]);
+  const [assigneeRows, setAssigneeRows] = useState<AssigneeRow[]>([newRow()]);
 
   function updateRow(key: string, patch: Partial<AssigneeRow>) {
     setAssigneeRows((r) => r.map((x) => x.key === key ? { ...x, ...patch } : x));
@@ -358,6 +359,10 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
   }
   function addRow() {
     setAssigneeRows((r) => [...r, newRow()]);
+  }
+  function addAllEmployees() {
+    if (assignees.length === 0) return;
+    setAssigneeRows(assignees.map((a) => newRow(a.id)));
   }
 
   // track which client was picked from dropdown (null = typed manually)
@@ -583,8 +588,10 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Հեռախոսահամար">
                 <input
+                  type="tel"
+                  inputMode="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(e.target.value.replace(/[^\d+\s-]/g, ''))}
                   placeholder="+374 XX XXX XXX"
                   className={inputCls()}
                 />
@@ -706,6 +713,17 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
                 />
               </Field>
             </div>
+          </Section>
+
+          {/* ── Task notes ── */}
+          <Section title="Նշումներ">
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Լրացուցիչ նշումներ․․․"
+              rows={3}
+              className={inputCls() + ' resize-none'}
+            />
           </Section>
 
           {/* ── Արժեք ── */}
@@ -877,12 +895,19 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
           <Section title="Կատարագրություն">
             {/* Assignee rows */}
             <div className="flex flex-col gap-2">
-              {assigneeRows.map((row, idx) => (
+              {assigneeRows.map((row, idx) => {
+                // Hide employees already picked in another row — an already-selected
+                // executor's own row still shows their name via row.assigneeId.
+                const pickedElsewhere = new Set(
+                  assigneeRows.filter((r) => r.key !== row.key && r.assigneeId).map((r) => r.assigneeId)
+                );
+                const rowOptions = assignees.filter((a) => !pickedElsewhere.has(a.id ?? ''));
+                return (
                 <div key={row.key} className="flex gap-2 items-end">
                   <div className="flex-1">
                     {idx === 0 && (
                       <p className="text-sm font-medium text-dark mb-1.5">
-                        Կատարող<span className="text-error ml-0.5">*</span>
+                        Կատարող
                       </p>
                     )}
                     <select
@@ -891,7 +916,7 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
                       className={inputCls(false)}
                     >
                       <option value="">Ընտրել...</option>
-                      {assignees.map((a) => (
+                      {rowOptions.map((a) => (
                         <option key={a.id ?? a.name} value={a.id ?? ''}>{a.name}</option>
                       ))}
                     </select>
@@ -918,34 +943,37 @@ export default function AddTaskModal({ assignees, onClose, onCreated }: AddTaskM
                     </svg>
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
-            <button
-              type="button"
-              onClick={addRow}
-              className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary-hover transition-colors"
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Ավելացնել կատարող
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={addRow}
+                className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary-hover transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Ավելացնել կատարող
+              </button>
+              <button
+                type="button"
+                onClick={addAllEmployees}
+                disabled={assignees.length === 0}
+                className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+                </svg>
+                Ավելացնել բոլորին
+              </button>
+            </div>
 
             <Field label="Վերջնաժամկետ">
               <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={inputCls()} />
             </Field>
-          </Section>
-
-          {/* ── Task notes ── */}
-          <Section title="Նշումներ">
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Լրացուցիչ նշումներ․․․"
-              rows={3}
-              className={inputCls() + ' resize-none'}
-            />
           </Section>
 
           {/* Footer */}

@@ -357,13 +357,17 @@ function DeliveryCard({
 }) {
   const queryClient = useQueryClient();
   const proofRef    = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
+  const galleryRef  = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading]        = useState(false);
+  const [uploadingImg, setUploadingImg]  = useState(false);
+  const [deletingImgId, setDeletingImgId] = useState<number | null>(null);
   const [lightbox,  setLightbox]  = useState<string | null>(null);
 
   const cfg     = STATUS_CFG[delivery.status] ?? STATUS_CFG.pending;
   const proofUrl = delivery.proofImageUrl
     ? (mediaUrl(delivery.proofImageUrl) ?? delivery.proofImageUrl)
     : null;
+  const images = delivery.images ?? [];
 
   async function handleProof(files: FileList | null) {
     if (!files?.[0]) return;
@@ -373,6 +377,25 @@ function DeliveryCard({
       queryClient.invalidateQueries({ queryKey: ['deliveries'] });
     } catch { /* non-fatal */ }
     finally { setUploading(false); }
+  }
+
+  async function handleGalleryUpload(files: FileList | null) {
+    if (!files?.[0]) return;
+    setUploadingImg(true);
+    try {
+      await deliveryService.uploadImage(delivery.id, files[0], undefined, images.length);
+      queryClient.invalidateQueries({ queryKey: ['deliveries'] });
+    } catch { /* non-fatal */ }
+    finally { setUploadingImg(false); }
+  }
+
+  async function handleDeleteImage(imageId: number) {
+    setDeletingImgId(imageId);
+    try {
+      await deliveryService.deleteImage(delivery.id, imageId);
+      queryClient.invalidateQueries({ queryKey: ['deliveries'] });
+    } catch { /* non-fatal */ }
+    finally { setDeletingImgId(null); }
   }
 
   return (
@@ -485,6 +508,32 @@ function DeliveryCard({
           </div>
         )}
 
+        {/* Gallery */}
+        {images.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {images.map((img) => {
+              const url = mediaUrl(img.image) ?? img.image;
+              return (
+                <div
+                  key={img.id}
+                  className="relative w-16 h-16 rounded-lg overflow-hidden border border-crm-border cursor-pointer group flex-shrink-0"
+                  onClick={() => setLightbox(url)}
+                  title={img.note ?? undefined}
+                >
+                  <img src={url} alt={img.note ?? 'gallery'} className="w-full h-full object-cover" />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}
+                    disabled={deletingImgId === img.id}
+                    className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[10px] disabled:opacity-100"
+                  >
+                    {deletingImgId === img.id ? '…' : '✕'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex items-center gap-2 pt-1 border-t border-crm-border/50 mt-auto">
           <button
@@ -506,6 +555,21 @@ function DeliveryCard({
             className="flex-1 px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
           >
             {uploading ? '...' : proofUrl ? '🔄 Նկար' : '📷 Նկար'}
+          </button>
+          <input
+            ref={galleryRef}
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={(e) => { handleGalleryUpload(e.target.files); e.target.value = ''; }}
+          />
+          <button
+            onClick={() => galleryRef.current?.click()}
+            disabled={uploadingImg}
+            className="flex-shrink-0 w-8 h-8 flex items-center justify-center text-xs font-semibold rounded-lg border border-dashed border-crm-border text-text-muted hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+            title="Ավելացնել նկար"
+          >
+            {uploadingImg ? '…' : '+'}
           </button>
         </div>
       </div>

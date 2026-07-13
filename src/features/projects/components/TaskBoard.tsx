@@ -211,6 +211,9 @@ export interface LazyBoardFilters {
 }
 
 function passesClientOnlyFilters(task: Task, filters: LazyBoardFilters): boolean {
+  // Once a task has been sent to delivery it's no longer part of the active
+  // production pipeline — same rule the List/Timeline views already apply.
+  if (task.deliveryConfirmed) return false;
   if (filters.roleEmployeeIds) {
     if (filters.roleEmployeeIds.size === 0) return false;
     const matches = filters.roleEmployeeIds.has(String(task.assigneeId)) ||

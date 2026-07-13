@@ -31,7 +31,7 @@ export default function KpiCards({
     {
       label: 'Ակտիվ պատվերներ',
       value: String(dashboard?.total_active_tasks ?? placeholder),
-      href: '/tasks',
+      href: '/tasks/active',
       bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/20',
       icon: (
         <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -44,7 +44,7 @@ export default function KpiCards({
     {
       label: 'Ժամկետանց',
       value: String(dashboard?.overdue_tasks ?? placeholder),
-      href: '/tasks',
+      href: '/tasks/active',
       bg: 'bg-error/10', text: 'text-error', border: 'border-error/20',
       icon: (
         <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -56,7 +56,7 @@ export default function KpiCards({
     {
       label: 'Այսօրվա զանգեր',
       value: String(dashboard?.upcoming_calls_today ?? placeholder),
-      href: '/calls',
+      href: '/contacts/calls',
       bg: 'bg-warning/10', text: 'text-warning', border: 'border-warning/20',
       icon: (
         <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -65,9 +65,9 @@ export default function KpiCards({
       ),
     },
     {
-      label: 'Ամսի եկամուտ',
-      value: dashboard ? `${fmt(dashboard.revenue_this_month).toLocaleString()} ֏` : placeholder,
-      href: '/finance',
+      label: 'Ընդհանուր ակտիվ արժեք',
+      value: dashboard?.active_tasks_value != null ? `${fmt(dashboard.active_tasks_value).toLocaleString()} ֏` : placeholder,
+      href: '/tasks/active',
       bg: 'bg-success/10', text: 'text-success', border: 'border-success/20',
       icon: (
         <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
