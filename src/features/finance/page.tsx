@@ -419,6 +419,29 @@ function ConfirmDeleteModal({ onConfirm, onCancel, isPending }: {
 type DirFilter = 'all' | TransactionDirection;
 type MainTab = 'transactions' | 'transfers';
 
+// Keep the filter bar (direction/category/payment method/date range) as the
+// user left it for the rest of the browser session — reopening or navigating
+// back to this page shouldn't silently reset it.
+const FILTERS_SESSION_KEY = 'finance-filters';
+
+interface SavedFinanceFilters {
+  dirFilter?: DirFilter;
+  catFilter?: string;
+  dateFrom?:  string;
+  dateTo?:    string;
+  pmFilter?:  'all' | 'cash' | 'card';
+}
+
+function readSavedFinanceFilters(): SavedFinanceFilters {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = sessionStorage.getItem(FILTERS_SESSION_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 export default function FinancePage() {
   const queryClient  = useQueryClient();
   const isDirector   = useAuthStore((s) => s.role) === 'director';
@@ -426,15 +449,20 @@ export default function FinancePage() {
   const [mainTab,       setMainTab]       = useState<MainTab>('transactions');
   const [addOpen,       setAddOpen]       = useState(false);
   const [deleteItem,    setDeleteItem]    = useState<TransactionDTO | null>(null);
-  const [dirFilter,     setDirFilter]     = useState<DirFilter>('all');
-  const [catFilter,     setCatFilter]     = useState<string>('all');
-  const [dateFrom,      setDateFrom]      = useState('');
-  const [dateTo,        setDateTo]        = useState('');
+  const [dirFilter,     setDirFilter]     = useState<DirFilter>(() => readSavedFinanceFilters().dirFilter ?? 'all');
+  const [catFilter,     setCatFilter]     = useState<string>(() => readSavedFinanceFilters().catFilter ?? 'all');
+  const [dateFrom,      setDateFrom]      = useState(() => readSavedFinanceFilters().dateFrom ?? '');
+  const [dateTo,        setDateTo]        = useState(() => readSavedFinanceFilters().dateTo ?? '');
   const [isExporting,   setIsExporting]   = useState(false);
-  const [pmFilter,      setPmFilter]      = useState<'all' | 'cash' | 'card'>('all');
+  const [pmFilter,      setPmFilter]      = useState<'all' | 'cash' | 'card'>(() => readSavedFinanceFilters().pmFilter ?? 'all');
   const [transferOpen,  setTransferOpen]  = useState(false);
   const [editTransfer,  setEditTransfer]  = useState<TransferDTO | null>(null);
   const [deleteTransfer, setDeleteTransfer] = useState<TransferDTO | null>(null);
+
+  useEffect(() => {
+    const filters: SavedFinanceFilters = { dirFilter, catFilter, dateFrom, dateTo, pmFilter };
+    sessionStorage.setItem(FILTERS_SESSION_KEY, JSON.stringify(filters));
+  }, [dirFilter, catFilter, dateFrom, dateTo, pmFilter]);
 
   const { data: customCategories = [] } = useQuery({
     queryKey: ['finance-categories'],
@@ -730,7 +758,8 @@ export default function FinancePage() {
       </div>
 
       {/* Filters — transactions only */}
-      {mainTab === 'transactions' && <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 mb-4 flex-shrink-0">
+      {mainTab === 'transactions' && <div className="flex flex-col gap-2 sm:gap-3 mb-4 flex-shrink-0">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
 
         {/* Direction pills */}
         <div className="flex gap-1 bg-gray-100 rounded-xl p-1 self-start sm:self-auto">
@@ -801,18 +830,19 @@ export default function FinancePage() {
             ))}
           </select>
         </div>
+      </div>
 
-        {/* Date range */}
+        {/* Date range — its own row, so it doesn't fight the pills/chips for space */}
         <div className="flex items-center gap-2">
           <input
-            type="date"
+            type="datetime-local"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
             className="flex-1 sm:flex-none px-3 py-2 text-sm rounded-xl border border-crm-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
           <span className="text-text-muted text-sm flex-shrink-0">—</span>
           <input
-            type="date"
+            type="datetime-local"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
             className="flex-1 sm:flex-none px-3 py-2 text-sm rounded-xl border border-crm-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -835,10 +865,10 @@ export default function FinancePage() {
         <div className="flex-1 min-h-[420px]">
           {/* Date filter row for transfers */}
           <div className="flex flex-wrap items-center gap-2 mb-4 flex-shrink-0">
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+            <input type="datetime-local" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
               className="flex-1 sm:flex-none min-w-0 px-3 py-2 text-sm rounded-xl border border-crm-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30" />
             <span className="text-text-muted text-sm flex-shrink-0">—</span>
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+            <input type="datetime-local" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
               className="flex-1 sm:flex-none min-w-0 px-3 py-2 text-sm rounded-xl border border-crm-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30" />
             {(dateFrom || dateTo) && (
               <button onClick={() => { setDateFrom(''); setDateTo(''); }} className="flex-shrink-0 p-1.5 text-text-muted hover:text-error transition-colors">
@@ -967,9 +997,10 @@ export default function FinancePage() {
 
             {/* Desktop table */}
             <div className="hidden sm:block overflow-x-auto">
-              <div className="grid grid-cols-[150px_1fr_110px_130px_130px_44px] gap-4 px-5 py-3 border-b border-crm-border bg-gray-50 sticky top-0 min-w-[740px]">
+              <div className="grid grid-cols-[150px_140px_1fr_110px_130px_130px_44px] gap-4 px-5 py-3 border-b border-crm-border bg-gray-50 sticky top-0 min-w-[860px]">
                 <span className="text-xs font-semibold text-text-muted">Ամսաթիվ</span>
-                <span className="text-xs font-semibold text-text-muted">Բաժին / Նկարագրություն</span>
+                <span className="text-xs font-semibold text-text-muted">Բաժին</span>
+                <span className="text-xs font-semibold text-text-muted">Նկարագրություն</span>
                 <span className="text-xs font-semibold text-text-muted text-center">Վճ. տեսակ</span>
                 <span className="text-xs font-semibold text-text-muted text-center">Տեսակ</span>
                 <span className="text-xs font-semibold text-text-muted text-right">Գումար</span>
@@ -978,15 +1009,13 @@ export default function FinancePage() {
               {transactions.map((tx) => (
                 <div
                   key={tx.id}
-                  className="grid grid-cols-[150px_1fr_110px_110px_130px_44px] gap-4 px-5 py-3.5 border-b border-crm-border last:border-b-0 hover:bg-gray-50 transition-colors items-center min-w-[740px]"
+                  className="grid grid-cols-[150px_140px_1fr_110px_110px_130px_44px] gap-4 px-5 py-3.5 border-b border-crm-border last:border-b-0 hover:bg-gray-50 transition-colors items-center min-w-[860px]"
                 >
                   <span className="text-xs text-text-muted whitespace-nowrap">{fmtDate(tx.transaction_date)}</span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-dark">
-                      {tx.custom_category_name ?? CATEGORY_LABELS[tx.category] ?? tx.category}
-                    </p>
-                    {txSubtitle(tx) && <p className="text-xs text-text-muted truncate">{txSubtitle(tx)}</p>}
-                  </div>
+                  <p className="text-sm font-semibold text-dark truncate min-w-0">
+                    {tx.custom_category_name ?? CATEGORY_LABELS[tx.category] ?? tx.category}
+                  </p>
+                  <p className="text-xs text-text-muted truncate min-w-0">{txSubtitle(tx) ?? '—'}</p>
                   <div className="flex justify-center">
                     {tx.payment_method ? (
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${tx.payment_method === 'card' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>

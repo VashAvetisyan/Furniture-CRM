@@ -1,7 +1,7 @@
 ﻿'use client';
 import { SkTable } from '@/components/ui/Skeleton';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   deliveryService,
@@ -267,11 +267,11 @@ function AddDeliveryModal({ onClose }: { onClose: () => void }) {
 function ChangeStatusModal({ delivery, onClose }: { delivery: DeliveryDTO; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<DeliveryStatus>(delivery.status);
-  const [note,   setNote]   = useState('');
   const [error,  setError]  = useState('');
+  const statusChanged = status !== delivery.status;
 
   const { mutate, isPending } = useMutation({
-    mutationFn: () => deliveryService.changeStatus(delivery.id, status, note.trim() || undefined),
+    mutationFn: () => deliveryService.changeStatus(delivery.id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deliveries'] });
       queryClient.invalidateQueries({ queryKey: ['delivery-stats'] });
@@ -313,14 +313,6 @@ function ChangeStatusModal({ delivery, onClose }: { delivery: DeliveryDTO; onClo
           })}
         </div>
 
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Նշում (ոչ պարտադիր)..."
-          rows={2}
-          className="w-full px-3 py-2 text-sm rounded-xl border border-crm-border outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 resize-none bg-white"
-        />
-
         {error && <p className="text-xs text-error">{error}</p>}
 
         <div className="flex justify-end gap-2">
@@ -329,7 +321,7 @@ function ChangeStatusModal({ delivery, onClose }: { delivery: DeliveryDTO; onClo
           </button>
           <button
             onClick={() => mutate()}
-            disabled={isPending || status === delivery.status}
+            disabled={isPending || !statusChanged}
             className="px-5 py-2 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary-hover transition-colors disabled:opacity-60"
           >
             {isPending ? '...' : 'Հաստատել'}
@@ -362,6 +354,16 @@ function DeliveryCard({
   const [uploadingImg, setUploadingImg]  = useState(false);
   const [deletingImgId, setDeletingImgId] = useState<number | null>(null);
   const [lightbox,  setLightbox]  = useState<string | null>(null);
+
+  // Inline-editable on the card itself instead of only reachable through the
+  // status-change modal — kept in sync if it changes elsewhere (e.g. that modal).
+  const [noteDraft, setNoteDraft] = useState(delivery.notes ?? '');
+  useEffect(() => { setNoteDraft(delivery.notes ?? ''); }, [delivery.notes]);
+  const noteDirty = noteDraft.trim() !== (delivery.notes ?? '').trim();
+  const { mutate: saveNote, isPending: isSavingNote } = useMutation({
+    mutationFn: (notes: string) => deliveryService.update(delivery.id, { notes: notes || undefined }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliveries'] }),
+  });
 
   const cfg     = STATUS_CFG[delivery.status] ?? STATUS_CFG.pending;
   const proofUrl = delivery.proofImageUrl
@@ -488,12 +490,36 @@ function DeliveryCard({
           )}
         </div>
 
-        {/* Notes */}
-        {delivery.notes && (
-          <p className="text-[11px] text-text-muted italic bg-gray-50 rounded-lg px-2.5 py-1.5 border border-gray-100 leading-relaxed">
-            {delivery.notes}
-          </p>
-        )}
+        {/* Notes — editable right here, no need to open the status modal */}
+        <div className="flex flex-col gap-1.5">
+          <textarea
+            value={noteDraft}
+            onChange={(e) => setNoteDraft(e.target.value)}
+            placeholder="Մեկնաբանություն..."
+            rows={2}
+            className="w-full text-[11px] text-dark bg-gray-50 rounded-lg px-2.5 py-1.5 border border-gray-100 leading-relaxed outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 resize-none transition-colors"
+          />
+          {noteDirty && (
+            <div className="flex justify-end gap-1.5">
+              <button
+                type="button"
+                onClick={() => setNoteDraft(delivery.notes ?? '')}
+                disabled={isSavingNote}
+                className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-crm-border text-text-muted hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Չեղարկել
+              </button>
+              <button
+                type="button"
+                onClick={() => saveNote(noteDraft.trim())}
+                disabled={isSavingNote}
+                className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-50"
+              >
+                {isSavingNote ? '...' : 'Հաստատել'}
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Proof image */}
         {proofUrl && (
@@ -626,7 +652,17 @@ export default function DeliveryPage() {
       return deliveryService.getAll(p);
     },
   });
-  const deliveries = deliveryData?.results ?? [];
+  // Delivery records for archived tasks are kept (not deleted) so their history
+  // still shows on the archived task's own detail view — but they shouldn't
+  // clutter this operational queue anymore, so filter them out here instead.
+  const { data: archivedTasksData } = useQuery({
+    queryKey: ['tasks', 'archive'],
+    queryFn:  taskService.getArchived,
+    staleTime: 60_000,
+  });
+  const archivedTaskIds = new Set((archivedTasksData?.results ?? []).map((t) => Number(t.id)));
+
+  const deliveries = (deliveryData?.results ?? []).filter((d) => !archivedTaskIds.has(d.task));
 
   const { data: stats } = useQuery({
     queryKey: ['delivery-stats'],
@@ -787,7 +823,7 @@ export default function DeliveryPage() {
               <rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
               <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
             </svg>
-            <span className="text-sm">Delivery-ներ չկան</span>
+            <span className="text-sm">Առաքմաններ չկան</span>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -811,6 +847,7 @@ export default function DeliveryPage() {
           task={taskDetail}
           onClose={() => setTaskDetailId(null)}
           allowArchive={true}
+          isDeliveryContext={true}
         />
       )}
 

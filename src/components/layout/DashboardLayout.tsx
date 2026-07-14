@@ -2,19 +2,22 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import Sidebar from './Sidebar';
+import { useQuery } from '@tanstack/react-query';
+import Sidebar, { isPathAllowed, getFirstAllowedPath } from './Sidebar';
 import Header from './Header';
 import ToastStack from '@/components/ui/ToastStack';
 import TopProgressBar from '@/components/ui/TopProgressBar';
 import { useAuthStore, useUIStore } from '@/stores';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { refreshAccessToken } from '@/lib/api';
+import { accessService } from '@/services/access.service';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router          = useRouter();
   const pathname        = usePathname();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hasHydrated     = useAuthStore((s) => s._hasHydrated);
+  const role            = useAuthStore((s) => s.role);
   const { sidebarOpen, setSidebarOpen } = useUIStore();
 
   const [navigating, setNavigating] = useState(false);
@@ -26,6 +29,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (hasHydrated && !isAuthenticated) router.replace('/login');
   }, [hasHydrated, isAuthenticated, router]);
+
+  // Sidebar only *hides* links an employee's position isn't allowed to see —
+  // it never stopped someone from reaching that same page by typing the URL
+  // directly. Guard it here too, in the one place every dashboard page routes
+  // through. Directors bypass this entirely; employees only get bounced once
+  // the permission list has actually loaded (undefined = still loading).
+  const { data: myPages } = useQuery({
+    queryKey:  ['my-pages'],
+    queryFn:   accessService.getMyPages,
+    staleTime: 5 * 60 * 1000,
+    enabled:   role === 'employee',
+  });
+
+  useEffect(() => {
+    if (role !== 'employee' || myPages === undefined) return;
+    const allowedSlugs = new Set(myPages.map((p) => p.slug));
+    if (isPathAllowed(pathname, allowedSlugs)) return;
+    // '/dashboard' was previously always exempt from this check — but an
+    // employee whose position doesn't have dashboard access would still get
+    // bounced right back to it, silently showing them a page they're not
+    // supposed to see. Send them to the first page they actually have instead.
+    const fallback = getFirstAllowedPath(allowedSlugs);
+    if (fallback && fallback !== pathname) router.replace(fallback);
+  }, [role, myPages, pathname, router]);
 
   // Proactively renew the access token as soon as the app boots into an
   // authenticated shell, instead of waiting for the first page's data fetch to

@@ -402,6 +402,11 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['tasks', employeeId] });
+      // Each salary payment creates a linked finance transaction — keep the
+      // Finance page's cache in sync instead of leaving it stale until the
+      // next poll/visit.
+      queryClient.invalidateQueries({ queryKey: ['finance-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-summary'] });
       setOpenId(null);
       setPayNote('');
       setPayDate('');
@@ -415,6 +420,8 @@ function SalaryTab({ tasks, employeeId }: { tasks: TaskDTO[]; employeeId: string
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['tasks', employeeId] });
+      queryClient.invalidateQueries({ queryKey: ['finance-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-summary'] });
     },
   });
 

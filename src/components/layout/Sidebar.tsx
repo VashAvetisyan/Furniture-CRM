@@ -218,6 +218,43 @@ function pageAllowed(entry: NavEntry, allowedSlugs: Set<string>): boolean {
     entry.children.some((c) => allowedSlugs.has(hrefToSlug(c.href)));
 }
 
+// Route guard used by DashboardLayout — hiding a nav link only stops an
+// employee from *clicking* their way into a restricted page; typing the URL
+// directly still rendered it, since nothing checked access at the page level.
+// Only pages actually represented in NAV are gated; unknown/dynamic routes
+// (e.g. a detail page not listed here) are left alone rather than guessed at.
+export function isPathAllowed(pathname: string, allowedSlugs: Set<string>): boolean {
+  for (const entry of NAV) {
+    if (entry.type === 'link') {
+      if (pathname === entry.href || pathname.startsWith(entry.href + '/')) {
+        return pageAllowed(entry, allowedSlugs);
+      }
+    } else {
+      for (const child of entry.children) {
+        if (pathname === child.href || pathname.startsWith(child.href + '/')) {
+          return pageAllowed(entry, allowedSlugs);
+        }
+      }
+    }
+  }
+  return true;
+}
+
+// Where to send someone bounced off a page they can't see — '/dashboard' only
+// works as a fallback if they actually have it; otherwise land on whichever
+// page they do have, in NAV order. Returns null if they have none at all.
+export function getFirstAllowedPath(allowedSlugs: Set<string>): string | null {
+  for (const entry of NAV) {
+    if (entry.type === 'link') {
+      if (pageAllowed(entry, allowedSlugs)) return entry.href;
+    } else if (pageAllowed(entry, allowedSlugs)) {
+      const child = entry.children.find((c) => allowedSlugs.has(hrefToSlug(c.href)));
+      if (child) return child.href;
+    }
+  }
+  return null;
+}
+
 export default function Sidebar() {
   const pathname        = usePathname();
   const router          = useRouter();
@@ -280,7 +317,7 @@ export default function Sidebar() {
   const logoSrc = mediaUrl(brand?.logo ?? null);
 
   return (
-    <aside className="w-52 h-full bg-white rounded-2xl shadow-sm flex flex-col flex-shrink-0 overflow-hidden">
+    <aside className="app-sidebar w-52 h-full bg-white rounded-2xl shadow-sm flex flex-col flex-shrink-0 overflow-hidden">
       {/* Logo + brand name + mobile close */}
       <div className="px-4 pt-5 pb-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">

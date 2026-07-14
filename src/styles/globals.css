@@ -46,22 +46,23 @@ button, a, input, select, textarea {
   transition-timing-function: ease;
 }
 
-/* ── Dark mode variables — true black palette ────────────────────────────── */
+/* ── Dark mode variables — near-monochrome charcoal (Ryven-style reference):
+   near-black page, dark-gray cards, white text, minimal color accent ────── */
 
 .dark {
   /* Backgrounds — 3 clearly distinct layers */
-  --color-light:         #000000;   /* page background  */
-  --color-bg-card:       #0A0A0A;   /* cards / panels   */
-  --color-bg-subtle:     #161616;   /* table headers, hover rows */
-  --color-bg-input:      #000000;   /* inputs           */
+  --color-light:         #0D0D0F;   /* page background  */
+  --color-bg-card:       #1A1A1D;   /* cards / panels   */
+  --color-bg-subtle:     #151517;   /* table headers, hover rows (between page & card) */
+  --color-bg-input:      #0D0D0F;   /* inputs           */
 
   /* Text */
-  --color-dark:          #ECECEC;   /* primary text     */
-  --color-text-muted:    #8A8A8A;   /* secondary text   */
+  --color-dark:          #F5F5F5;   /* primary text     */
+  --color-text-muted:    #9A9AA0;   /* secondary text   */
 
   /* Borders & accents */
-  --color-crm-border:    #232323;
-  --color-primary-light: #1A1730;   /* primary-tinted bg for chips/badges */
+  --color-crm-border:    #2A2A2E;
+  --color-primary-light: #2A2A2E;   /* primary-tinted bg for chips/badges */
 
   color-scheme: dark;
 }
@@ -113,15 +114,21 @@ button, a, input, select, textarea {
 .dark .bg-gray-100.text-gray-600,
 .dark .bg-gray-100    { background-color: #232323 !important; }
 
-/* ── Dark: primary (indigo) — darker fills/tints, softer text so it doesn't
-   glare against a near-black background ────────────────────────────────── */
+/* ── Dark: primary accent — muted neutral slate instead of a bright brand
+   color, matching the near-monochrome reference (white text stays legible
+   on it, unlike a near-white button would be) ────────────────────────────  */
 
-.dark .bg-primary                    { background-image: linear-gradient(135deg, #3730A3 0%, #272566 100%) !important; }
-.dark .hover\:bg-primary-hover:hover { background-image: linear-gradient(135deg, #312E81 0%, #201D52 100%) !important; }
-.dark .text-primary                  { color: #9B97F5 !important; }
-.dark .border-primary                { border-color: #4338CA !important; }
-.dark [class*="bg-primary\/"]        { background-color: rgba(67, 56, 202, 0.22) !important; }
-.dark [class*="border-primary\/"]    { border-color: rgba(67, 56, 202, 0.4)  !important; }
+.dark .bg-primary                    { background-image: linear-gradient(135deg, #52525B 0%, #3F3F46 100%) !important; }
+.dark .hover\:bg-primary-hover:hover { background-image: linear-gradient(135deg, #45454C 0%, #333338 100%) !important; }
+.dark .text-primary                  { color: #D4D4D8 !important; }
+.dark .border-primary                { border-color: #52525B !important; }
+.dark [class*="bg-primary\/"]        { background-color: rgba(82, 82, 91, 0.3) !important; }
+.dark [class*="border-primary\/"]    { border-color: rgba(82, 82, 91, 0.5)  !important; }
+
+/* ── Dark: sidebar active nav item — white pill with near-black text, so it
+   reads as a clear highlight rather than another dark-on-dark block ─────── */
+.dark .app-sidebar .bg-primary-light { background-color: #F5F5F5 !important; }
+.dark .app-sidebar .text-primary     { color: #0D0D0F !important; }
 
 /* ── Dark: shadow overrides ──────────────────────────────────────────────── */
 

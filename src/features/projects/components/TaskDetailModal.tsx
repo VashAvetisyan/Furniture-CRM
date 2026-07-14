@@ -197,13 +197,18 @@ interface TaskDetailModalProps {
   onClose:            () => void;
   allowArchive?:      boolean;
   allowSendDelivery?: boolean;
+  // Delivery staff need the recipient's phone + delivery address to actually
+  // do the delivery — the usual employee PII restriction doesn't apply to
+  // just those two fields when the modal is opened from the Delivery page.
+  isDeliveryContext?: boolean;
 }
 
-export default function TaskDetailModal({ task, projectName, onClose, allowArchive = false, allowSendDelivery = false }: TaskDetailModalProps) {
+export default function TaskDetailModal({ task, projectName, onClose, allowArchive = false, allowSendDelivery = false, isDeliveryContext = false }: TaskDetailModalProps) {
   const queryClient = useQueryClient();
   const role        = useAuthStore((s) => s.role);
   const user        = useAuthStore((s) => s.user);
   const isEmployee  = role === 'employee';
+  const hideContactInfo = isEmployee && !isDeliveryContext;
   const myUserId    = user?.id ? Number(user.id) : null;
   const [editing, setEditing] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -316,6 +321,16 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [uploadingFile, setUploadingFile] = useState(false);
 
+  // ── Delivery photos ──────────────────────────────────────────────────────────
+  // task.delivery doesn't carry images — fetch the full delivery record
+  // on demand (only once the director actually asks to see the photos).
+  const [deliveryImagesOpen, setDeliveryImagesOpen] = useState(false);
+  const { data: deliveryFull, isLoading: deliveryImagesLoading } = useQuery({
+    queryKey: ['delivery-full', task.delivery?.id],
+    queryFn:  () => deliveryService.getById(task.delivery!.id),
+    enabled:  deliveryImagesOpen && task.delivery?.id != null,
+  });
+
   const { data: attachments = [], refetch: refetchAttachments } = useQuery<AttachmentDTO[]>({
     queryKey: ['task-attachments', task.id],
     queryFn:  () => attachmentService.getAll(task.id),
@@ -377,6 +392,15 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
 
   const balanceDue = parseFloat(costSummary?.balance_due ?? '0') || 0;
 
+  // Prefill "Վճարել հիմա" with the full remaining balance as soon as it's known —
+  // was just a placeholder before, so it looked filled in but submitted as empty.
+  // Only fires once per modal open (archivePayAmt is reset to '' when it opens).
+  useEffect(() => {
+    if (archiveConfirm && costSummary && archivePayAmt === '') {
+      setArchivePayAmt(String(balanceDue));
+    }
+  }, [archiveConfirm, costSummary]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const { mutate: archiveTask, isPending: isArchiving } = useMutation({
     mutationFn: async ({ addDebt }: { addDebt: boolean }) => {
       const payAmt = parseFloat(archivePayAmt) || 0;
@@ -399,9 +423,8 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
           });
         }
       }
-      if (task.delivery?.id) {
-        await deliveryService.delete(task.delivery.id);
-      }
+      // Delivery record is kept (not deleted) on archive so its history —
+      // status, dates, driver, recipient — stays visible on the archived task.
       await taskService.update(task.id, { section: 'archive' });
     },
     onSuccess: () => {
@@ -848,7 +871,7 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                     clients={clients}
                   />
                 </EditField>
-                {!isEmployee && (
+                {!hideContactInfo && (
                   <EditField label="Հեռախոսահամար">
                     <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls()} />
                   </EditField>
@@ -856,7 +879,7 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                 <EditField label="Ընդունման ամսաթիվ">
                   <input type="datetime-local" value={acceptanceDate} onChange={(e) => setAccDate(e.target.value)} className={inputCls()} />
                 </EditField>
-                {!isEmployee && (
+                {!hideContactInfo && (
                   <EditField label="Առաքման հասցե">
                     <input value={deliveryAddress} onChange={(e) => setAddress(e.target.value)} className={inputCls()} />
                   </EditField>
@@ -876,9 +899,9 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <MetaCell label="Անուն Ազգանուն">{resolveClientName(task.client)}</MetaCell>
-                {!isEmployee && <MetaCell label="Հեռախոսահամար">{task.phone || '—'}</MetaCell>}
+                {!hideContactInfo && <MetaCell label="Հեռախոսահամար">{task.phone || '—'}</MetaCell>}
                 <MetaCell label="Ընդունման ամսաթիվը">{task.acceptanceDate ? new Date(task.acceptanceDate).toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—'}</MetaCell>
-                {!isEmployee && <MetaCell label="Առաքման հասցե">{task.deliveryAddress || '—'}</MetaCell>}
+                {!hideContactInfo && <MetaCell label="Առաքման հասցե">{task.deliveryAddress || '—'}</MetaCell>}
                 {!isEmployee && <MetaCell label="Անձնագրերի սերիա">{linkedClient?.id_document || task.passportSeries || "—"}</MetaCell>}
                 {!isEmployee && <MetaCell label="Հաճախորդի նշումներ">{linkedClient?.description || task.description || "—"}</MetaCell>}
               </div>
@@ -947,6 +970,66 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
             )}
           </div>
 
+          {/* ── Առաքում ── */}
+          {!isEmployee && task.delivery && (
+            <div className="flex flex-col gap-3">
+              <SectionTitle icon="🚚">Առաքում</SectionTitle>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <MetaCell label="Կարգավիճակ">{task.delivery.status_display || task.delivery.status || '—'}</MetaCell>
+                <MetaCell label="Առաքման ամսաթիվ">
+                  {task.delivery.deliveredAt
+                    ? new Date(task.delivery.deliveredAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : task.delivery.scheduledDate
+                      ? new Date(task.delivery.scheduledDate).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      : '—'}
+                </MetaCell>
+                <MetaCell label="Հասցե">{task.delivery.address || '—'}</MetaCell>
+                <MetaCell label="Վարորդ">{task.delivery.driverName || '—'}</MetaCell>
+                <MetaCell label="Ստացող">{task.delivery.recipientName || '—'}</MetaCell>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setDeliveryImagesOpen((v) => !v)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary-hover transition-colors w-fit"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                </svg>
+                {deliveryImagesOpen ? 'Թաքցնել նկարները' : 'Տեսնել առաքման նկարները'}
+              </button>
+
+              {deliveryImagesOpen && (
+                deliveryImagesLoading ? (
+                  <p className="text-xs text-text-muted">Բեռնվում է...</p>
+                ) : (() => {
+                  const photos = [
+                    ...(deliveryFull?.proofImageUrl ? [{ id: 'proof', url: deliveryFull.proofImageUrl }] : []),
+                    ...(deliveryFull?.images ?? []).map((img) => ({ id: img.id, url: img.image })),
+                  ];
+                  return photos.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {photos.map((p) => {
+                        const src = mediaUrl(p.url) ?? p.url;
+                        return (
+                          <img
+                            key={p.id}
+                            src={src}
+                            alt=""
+                            className="w-20 h-20 rounded-xl object-cover border border-crm-border cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => setLightboxUrl(src)}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-text-muted">Նկարներ չկան</p>
+                  );
+                })()
+              )}
+            </div>
+          )}
+
           {/* ── Arzhek ── */}
           {!isEmployee && <div className="flex flex-col gap-3">
             <SectionTitle icon="💰">Արժեք</SectionTitle>
@@ -1010,7 +1093,7 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                             );
                           }
                           const p = row as TaskPayment & { isLegacy: false };
-                          const typeLabel = ({ advance: 'Կանխավճար', partial: 'Միջնավճար', final: 'Verdjnits', other: 'Ayl' } as Record<string, string>)[p.paymentType] ?? p.paymentType;
+                          const typeLabel = ({ advance: 'Կանխավճար', partial: 'Միջնավճար', final: 'Վերջնավճար', other: 'Ayl' } as Record<string, string>)[p.paymentType] ?? p.paymentType;
                           const typeCls = ({ advance: 'bg-blue-100 text-blue-700', partial: 'bg-amber-100 text-amber-700', final: 'bg-green-100 text-green-700', other: 'bg-gray-100 text-gray-600' } as Record<string, string>)[p.paymentType] ?? 'bg-gray-100 text-gray-600';
                           return (
                             <div key={p.id} className="flex items-center gap-2 text-xs py-1.5 border-b border-crm-border/30 last:border-b-0">
@@ -1640,20 +1723,16 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
                   {balanceDue > 0 ? (
                     <>
                       <button
-                        onClick={() => archiveTask({ addDebt: false })}
+                        onClick={() => archiveTask({ addDebt: true })}
                         disabled={isArchiving}
                         className="w-full py-2 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-50"
                       >
-                        {isArchiving ? '...' : parseFloat(archivePayAmt) > 0 ? 'Վճ. և կատարված' : 'Կատարված (առանց վճ.)'}
+                        {isArchiving ? '...' : parseFloat(archivePayAmt) > 0 ? 'Վճարված  և կատարված' : 'Կատարված առանց վճարման'}
                       </button>
-                      {task.clientLinkId && (
-                        <button
-                          onClick={() => archiveTask({ addDebt: true })}
-                          disabled={isArchiving}
-                          className="w-full py-2 text-sm font-semibold rounded-xl border border-error/40 text-error hover:bg-error/5 transition-colors disabled:opacity-50"
-                        >
-                          {isArchiving ? '...' : 'Ավ. պարտք և կատարված'}
-                        </button>
+                      {task.clientLinkId && balanceDue - (parseFloat(archivePayAmt) || 0) > 0 && (
+                        <p className="text-[11px] text-text-muted text-center -mt-1">
+                          Մնացորդը ավտոմատ կգրանցվի որպես պարտք հաճախորդի հաշվին
+                        </p>
                       )}
                     </>
                   ) : (

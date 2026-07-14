@@ -294,6 +294,28 @@ export default function TaskBoard({ tasks, projectName, isLoading, filters = {} 
   const [loadedTasks, setLoadedTasks]   = useState<Record<string, Task>>({});
   const [columnCounts, setColumnCounts] = useState<Record<string, number>>({});
   const queryClient = useQueryClient();
+
+  // Board rows don't carry heavier nested data like `delivery` — fetch the
+  // full detail once a task is opened (same as the Delivery page) so the
+  // modal doesn't silently omit sections the list payload left out.
+  const { data: fullOpenTaskDto } = useQuery({
+    queryKey: ['task-detail', openTask?.id],
+    queryFn:  () => taskService.getById(openTask!.id),
+    enabled:  openTask != null,
+  });
+  const fullOpenTask: Task | null = fullOpenTaskDto
+    ? {
+        ...(fullOpenTaskDto as unknown as Task),
+        id:      String((fullOpenTaskDto as unknown as { id?: unknown }).id ?? fullOpenTaskDto.taskId),
+        taskId:  fullOpenTaskDto.taskId,
+        // The single-task detail endpoint doesn't reliably echo back `section`
+        // (e.g. omits 'archive') — trust the card that was actually clicked
+        // (openTask.section) over it, since that came straight from the
+        // board's own known-correct data.
+        section: (openTask?.section ?? fullOpenTaskDto.section ?? 'active') as Task['section'],
+        status:  (fullOpenTaskDto.statusId !== undefined ? String(fullOpenTaskDto.statusId) : fullOpenTaskDto.status) as Task['status'],
+      }
+    : null;
   const role        = useAuthStore((s) => s.role);
   const user        = useAuthStore((s) => s.user);
   const isEmployee  = role === 'employee';
@@ -631,7 +653,7 @@ export default function TaskBoard({ tasks, projectName, isLoading, filters = {} 
 
       {openTask && (
         <TaskDetailModal
-          task={loadedTasks[openTask.id] ?? openTask}
+          task={fullOpenTask ?? loadedTasks[openTask.id] ?? openTask}
           projectName={projectName}
           onClose={() => setOpenTask(null)}
           allowSendDelivery={true}

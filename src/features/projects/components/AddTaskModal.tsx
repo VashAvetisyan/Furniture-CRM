@@ -10,6 +10,7 @@ import { catalogService, type ProductDTO } from '@/services/catalog.service';
 import { companySettingsService } from '@/services/companySettings.service';
 import { toLocalDateInput, toLocalDateTimeInput } from '@/lib/date';
 import { useAuthStore } from '@/stores';
+import { useToastStore } from '@/stores/toast';
 import type { PanelAssignee } from './ProjectsListPanel';
 
 interface AddTaskModalProps {
@@ -487,7 +488,11 @@ export default function AddTaskModal({ assignees: allAssignees, onClose, onCreat
         } catch { /* skip if lookup fails */ }
       }
 
-      // 5. Add payments via task payment endpoint
+      // 5. Add payments via task payment endpoint — best-effort: the task
+      // itself is already saved by this point, so a payment failure here must
+      // not look like the whole submission failed (that invites a re-submit
+      // and a duplicate task). Collect what failed and warn instead.
+      const warnings: string[] = [];
       if (numericId > 0) {
         const advanceAmt = parseFloat(advancePayment || '0') || 0;
         if (advanceAmt > 0) {
@@ -498,7 +503,7 @@ export default function AddTaskModal({ assignees: allAssignees, onClose, onCreat
               paymentMethod: advanceMethod || 'cash',
               paidAt:        advanceDate ? new Date(advanceDate).toISOString() : undefined,
             });
-          } catch { /* payment failure doesn't cancel task */ }
+          } catch { warnings.push('Կանխավճարը'); }
         }
 
         for (const mid of midPayments) {
@@ -511,7 +516,7 @@ export default function AddTaskModal({ assignees: allAssignees, onClose, onCreat
                 paymentMethod: mid.method || 'cash',
                 paidAt:        mid.date ? new Date(mid.date + 'T00:00:00').toISOString() : undefined,
               });
-            } catch { /* payment failure doesn't cancel task */ }
+            } catch { warnings.push('Միջանկյալ վճարումը'); }
           }
         }
 
@@ -524,22 +529,27 @@ export default function AddTaskModal({ assignees: allAssignees, onClose, onCreat
               paymentMethod: finalMethod || 'cash',
               paidAt:        finalDate ? new Date(finalDate + 'T00:00:00').toISOString() : undefined,
             });
-          } catch { /* payment failure doesn't cancel task */ }
+          } catch { warnings.push('Վերջնավճարը'); }
         }
       }
 
-      // 6. Upload attachments
+      // 6. Upload attachments — same reasoning: non-fatal, task already exists.
       if (filesToUpload.length > 0 && numericId > 0) {
         for (const file of filesToUpload) {
           try {
             await attachmentService.upload(numericId, file);
-          } catch (uploadErr: unknown) {
-            const msg = uploadErr instanceof Error ? uploadErr.message : 'Upload error';
-            setError(`Ֆայլերի վերբեռնումը ձախողվեց...`);
-            setUploading(false);
-            return;
+          } catch {
+            warnings.push('Ֆայլերի վերբեռնումը');
+            break;
           }
         }
+      }
+
+      if (warnings.length) {
+        useToastStore.getState().addToast({
+          type: 'warning',
+          message: `Պատվերը պահպանվեց, բայց ${warnings.join(', ')} չհաջողվեց ավտոմատ — ավելացրեք ձեռքով։`,
+        });
       }
 
       queryClient.invalidateQueries({ queryKey: ['tasks'] });

@@ -123,31 +123,30 @@ function AddDebtModal({ onClose }: { onClose: () => void }) {
     }),
     onSuccess: async () => {
       qc.invalidateQueries({ queryKey: ['other-debts'] });
-      // The debt itself is already saved at this point. "owed_to_us" means we're
-      // the one handing out cash right now (a loan/advance that makes the other
-      // party owe us back), so it also needs a Finance entry — but that's
-      // best-effort bookkeeping and must NOT surface as a creation error (that
-      // would tempt a retry and create a duplicate debt). "we_owe" is an
-      // obligation we received without cash leaving yet; money only moves when
-      // we actually pay it off (the backend already records that as an expense).
-      if (direction === 'owed_to_us') {
-        try {
-          await financeService.create({
-            direction:        'out',
-            category:         'other',
-            amount:           parseFloat(amount.trim()),
-            description:      `Պարտք՝ ${partyName.trim()}${title.trim() ? ' — ' + title.trim() : ''}`,
-            transaction_date: new Date().toISOString(),
-            payment_method:   paymentMethod,
-          });
-          qc.invalidateQueries({ queryKey: ['finance-transactions'] });
-          qc.invalidateQueries({ queryKey: ['finance-summary'] });
-        } catch {
-          useToastStore.getState().addToast({
-            type:    'warning',
-            message: 'Պարտքը պահպանվեց, բայց Մուտք/Ելք գործարքը չստեղծվեց ավտոմատ — ավելացրեք ձեռքով։',
-          });
-        }
+      // The debt itself is already saved at this point — the Finance entry
+      // below is best-effort bookkeeping and must NOT surface as a creation
+      // error (that would tempt a retry and create a duplicate debt).
+      // "owed_to_us" means we're the one handing out cash right now (a
+      // loan/advance that makes the other party owe us back) — money leaves us.
+      // "we_owe" means the other party is the one handing us cash right now
+      // (a loan we're taking) — money comes in to us. Either way, cash moves
+      // at the moment the debt is created, so both get a linked transaction.
+      try {
+        await financeService.create({
+          direction:        direction === 'owed_to_us' ? 'out' : 'in',
+          category:         'other',
+          amount:           parseFloat(amount.trim()),
+          description:      `Պարտք՝ ${partyName.trim()}${title.trim() ? ' — ' + title.trim() : ''}`,
+          transaction_date: new Date().toISOString(),
+          payment_method:   paymentMethod,
+        });
+        qc.invalidateQueries({ queryKey: ['finance-transactions'] });
+        qc.invalidateQueries({ queryKey: ['finance-summary'] });
+      } catch {
+        useToastStore.getState().addToast({
+          type:    'warning',
+          message: 'Պարտքը պահպանվեց, բայց Մուտք/Ելք գործարքը չստեղծվեց ավտոմատ — ավելացրեք ձեռքով։',
+        });
       }
       onClose();
     },
@@ -192,13 +191,13 @@ function AddDebtModal({ onClose }: { onClose: () => void }) {
               <input type="datetime-local" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={INPUT_CLS} />
             </div>
           </div>
-          {direction === 'owed_to_us' && (
-            <div>
-              <label className="text-xs font-semibold text-text-muted mb-1.5 block">Վճարման եղանակ</label>
-              <PayMethodToggle value={paymentMethod} onChange={setPaymentMethod} />
-              <p className="text-[11px] text-text-muted mt-1.5">Գումարը կգրանցվի որպես ելք Մուտք/Ելք բաժնում</p>
-            </div>
-          )}
+          <div>
+            <label className="text-xs font-semibold text-text-muted mb-1.5 block">Վճարման եղանակ</label>
+            <PayMethodToggle value={paymentMethod} onChange={setPaymentMethod} />
+            <p className="text-[11px] text-text-muted mt-1.5">
+              Գումարը կգրանցվի որպես {direction === 'owed_to_us' ? 'ելք' : 'մուտք'} Մուտք/Ելք բաժնում
+            </p>
+          </div>
           <div>
             <label className="text-xs font-semibold text-text-muted mb-1.5 block">Նշում</label>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={`${INPUT_CLS} resize-none`} />

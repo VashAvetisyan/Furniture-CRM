@@ -495,6 +495,30 @@ export default function TaskList({ tasks, projectName }: TaskListProps) {
   const isEmployee = role === 'employee';
   const myUserId   = user?.id ? Number(user.id) : null;
   const [openTask, setOpenTask] = useState<Task | null>(null);
+
+  // The list query's task objects don't carry heavier nested data like
+  // `delivery` — fetch the full detail once a task is opened (same as the
+  // Delivery page already does) so e.g. archived tasks still show their
+  // delivery history instead of silently omitting the section.
+  const { data: fullOpenTaskDto } = useQuery({
+    queryKey: ['task-detail', openTask?.id],
+    queryFn:  () => taskService.getById(openTask!.id),
+    enabled:  openTask != null,
+  });
+  const fullOpenTask: Task | null = fullOpenTaskDto
+    ? {
+        ...(fullOpenTaskDto as unknown as Task),
+        id:      String((fullOpenTaskDto as unknown as { id?: unknown }).id ?? fullOpenTaskDto.taskId),
+        taskId:  fullOpenTaskDto.taskId,
+        // The single-task detail endpoint doesn't reliably echo back `section`
+        // (e.g. omits 'archive') — trust the row that was actually clicked
+        // (openTask.section) over it, since that came straight from the
+        // Active/Archive list query that's known correct.
+        section: (openTask?.section ?? fullOpenTaskDto.section ?? 'active') as Task['section'],
+        status:  (fullOpenTaskDto.statusId !== undefined ? String(fullOpenTaskDto.statusId) : fullOpenTaskDto.status) as Task['status'],
+      }
+    : null;
+
   const [page, setPage] = useState(1);
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter]     = useState<string | null>(null);
@@ -610,7 +634,7 @@ export default function TaskList({ tasks, projectName }: TaskListProps) {
 
       {openTask && (
         <TaskDetailModal
-          task={tasks.find((t) => t.id === openTask.id) ?? openTask}
+          task={fullOpenTask ?? tasks.find((t) => t.id === openTask.id) ?? openTask}
           projectName={projectName}
           onClose={() => setOpenTask(null)}
           allowSendDelivery={true}

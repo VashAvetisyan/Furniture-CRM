@@ -26,7 +26,7 @@ export default function WorkloadWidget({
               <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
             </svg>
           </div>
-          <h2 className="text-base font-bold text-dark">Կատարողների բեռ</h2>
+          <h2 className="text-base font-bold text-dark">Կատարողներ</h2>
         </div>
         <Link href="/staff/employees" className="text-xs text-primary font-medium hover:underline">
           Բոլորը →

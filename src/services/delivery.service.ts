@@ -75,6 +75,10 @@ function normalizeList(res: DeliveryListResponse | DeliveryDTO[]): DeliveryListR
 }
 
 export const deliveryService = {
+  getById(id: number) {
+    return request<DeliveryDTO>(`/delivery/${id}/`, { method: 'GET' });
+  },
+
   async getAll(params?: {
     status?:    DeliveryStatus;
     driver?:    number;
