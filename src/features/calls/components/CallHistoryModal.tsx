@@ -11,7 +11,10 @@ function nowDateTimeStr() {
 }
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('hy-AM', { day: '2-digit', month: 'short', year: 'numeric' });
+  const d = new Date(iso);
+  const date = d.toLocaleDateString('hy-AM', { day: '2-digit', month: 'short', year: 'numeric' });
+  const time = d.toLocaleTimeString('hy-AM', { hour: '2-digit', minute: '2-digit' });
+  return `${date} · ${time}`;
 }
 
 export default function CallHistoryModal({ client, onClose }: {
@@ -119,7 +122,7 @@ export default function CallHistoryModal({ client, onClose }: {
             disabled={!date || isPending}
             className="w-full py-2 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-40"
           >
-            {isPending ? 'Avelacrnoum...' : 'Avelacrnel'}
+            {isPending ? 'Ավելացնում է...' : 'Ավելացնել'}
           </button>
         </div>
 

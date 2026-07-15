@@ -796,8 +796,8 @@ export default function SuppliersPage() {
   });
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: 'suppliers', label: 'Մատակարարներ' },
     { key: 'debts', label: 'Պարտքներ' },
+    { key: 'suppliers', label: 'Մատակարարներ' },
   ];
 
   return (

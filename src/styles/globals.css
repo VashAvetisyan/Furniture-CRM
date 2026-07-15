@@ -72,7 +72,7 @@ button, a, input, select, textarea {
 .dark .bg-white,
 .dark [class*="bg-white\/"]      { background-color: var(--color-bg-card)   !important; }
 .dark .bg-gray-50,
-.dark .bg-gray-50\/80            { background-color: var(--color-bg-subtle) !important; }
+.dark [class*="bg-gray-50\/"]    { background-color: var(--color-bg-subtle) !important; }
 .dark .bg-gray-100               { background-color: #181818 !important; }
 .dark .bg-gray-200               { background-color: #232323 !important; }
 .dark .hover\:bg-gray-50:hover   { background-color: #161616 !important; }
@@ -154,6 +154,21 @@ button, a, input, select, textarea {
 
 /* Backdrop blur modals */
 .dark .backdrop-blur-sm { backdrop-filter: blur(6px); }
+
+/* ── Prevent native form controls from forcing horizontal overflow ──────────
+   iOS Safari's own rendering for type="datetime-local" / type="date" can
+   claim more intrinsic width than its box, pushing modals into a sideways
+   scroll instead of respecting `w-full` on the input itself. */
+input, select, textarea { max-width: 100%; }
+
+/* ── Mobile: prevent auto-zoom on input focus ────────────────────────────────
+   iOS/Android browsers (and the Android APK WebView) zoom the page in when a
+   focused form field's font-size is under 16px — override it just for small
+   viewports so the smaller `text-xs`/`text-sm` inputs elsewhere keep their
+   visual size on desktop. */
+@media (max-width: 767px) {
+  input, textarea, select { font-size: 16px !important; }
+}
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */
 

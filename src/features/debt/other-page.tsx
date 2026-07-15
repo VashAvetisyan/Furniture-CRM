@@ -35,8 +35,8 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
 };
 
 const DIRECTION_MAP: Record<string, { label: string; cls: string }> = {
-  owed_to_us: { label: 'Մեզ են պարտք',  cls: 'bg-success/10 text-success' },
-  we_owe:     { label: 'Մենք ենք պարտք', cls: 'bg-error/10 text-error'     },
+  owed_to_us: { label: 'Դեբիտ',  cls: 'bg-success/10 text-success' },
+  we_owe:     { label: 'Կրեդիտ', cls: 'bg-error/10 text-error'     },
 };
 
 const STATUS_FILTERS = [
@@ -48,8 +48,8 @@ const STATUS_FILTERS = [
 
 const DIRECTION_FILTERS = [
   { value: '',            label: 'Բոլոր' },
-  { value: 'owed_to_us',  label: 'Մեզ են պարտք' },
-  { value: 'we_owe',      label: 'Մենք ենք պարտք' },
+  { value: 'owed_to_us',  label: 'Դեբիտ' },
+  { value: 'we_owe',      label: 'Կրեդիտ' },
 ];
 
 const INPUT_CLS = 'w-full px-3 py-2 text-sm rounded-xl border border-crm-border outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white transition-all';

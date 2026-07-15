@@ -853,7 +853,7 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
           )}
         </div>
 
-        <div className="overflow-y-auto overscroll-contain flex-1 min-h-0">
+        <div className="overflow-y-auto overflow-x-hidden overscroll-contain flex-1 min-h-0">
         <div className="px-4 sm:px-6 py-4 sm:py-5 flex flex-col gap-5 sm:gap-6">
 
           {/* ── Պատվիրատու ── */}

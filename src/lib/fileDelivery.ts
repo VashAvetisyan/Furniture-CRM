@@ -18,6 +18,15 @@ export function triggerBrowserDownload(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
+// A bare Android WebView (no setDownloadListener wired up natively) silently
+// swallows the `download` attribute click above — nothing happens, no error.
+// Navigating the WebView itself to the blob URL doesn't rely on that hook at
+// all; it's a plain page load, which every WebView has to support, and the
+// Chromium-based system WebView renders PDFs inline once it gets there.
+export function openFileInPlace(blob: Blob): void {
+  window.location.href = URL.createObjectURL(blob);
+}
+
 type ShareCapableNavigator = Navigator & {
   share?:    (data: ShareData) => Promise<void>;
   canShare?: (data: ShareData) => boolean;

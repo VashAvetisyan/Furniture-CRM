@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { isMobileDevice, triggerBrowserDownload, shareFile } from '@/lib/fileDelivery';
+import { isMobileDevice, triggerBrowserDownload, openFileInPlace, shareFile } from '@/lib/fileDelivery';
 
 interface FileDeliveryModalProps {
   blob:     Blob;
@@ -53,7 +53,7 @@ export default function FileDeliveryModal({ blob, filename, title, onClose }: Fi
             {sharing ? '...' : 'Կիսվել'}
           </button>
           <button
-            onClick={() => { triggerBrowserDownload(blob, filename); onClose(); }}
+            onClick={() => { openFileInPlace(blob); onClose(); }}
             className="w-full px-4 py-2.5 text-sm font-semibold rounded-xl border border-crm-border text-dark hover:bg-gray-50 transition-colors"
           >
             Ներբեռնել

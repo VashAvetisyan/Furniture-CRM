@@ -12,7 +12,10 @@ function todayStr() { return toLocalDateInput(new Date()); }
 function nowDateTimeStr() { return toLocalDateTimeInput(new Date()); }
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('hy-AM', { day: '2-digit', month: 'short', year: 'numeric' });
+  const d = new Date(iso);
+  const date = d.toLocaleDateString('hy-AM', { day: '2-digit', month: 'short', year: 'numeric' });
+  const time = d.toLocaleTimeString('hy-AM', { hour: '2-digit', minute: '2-digit' });
+  return `${date} · ${time}`;
 }
 
 // ── Tab logic ─────────────────────────────────────────────────────────────────

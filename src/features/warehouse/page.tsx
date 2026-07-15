@@ -116,7 +116,7 @@ function AddMaterialModal({ onClose }: { onClose: () => void }) {
           <h2 className="text-base font-bold text-dark">Ավելացնել Նյութ</h2>
           <CloseBtn onClick={onClose} />
         </div>
-        <div className="overflow-y-auto overscroll-contain flex-1 min-h-0">
+        <div className="overflow-y-auto overflow-x-hidden overscroll-contain flex-1 min-h-0">
           <div className="px-5 sm:px-6 py-5 flex flex-col gap-4">
             <InputField label="Անուն" value={name} onChange={setName} placeholder="Նյութ Անուն..." required />
             <InputField label="Չ.Մ. (Չապ. Միավոր)" value={unit} onChange={setUnit} placeholder="մ, hat, kg, մ², ..." required />
@@ -170,7 +170,7 @@ function EditMaterialModal({ material, onClose }: { material: MaterialDTO; onClo
           <h2 className="text-base font-bold text-dark">խմբագրել</h2>
           <CloseBtn onClick={onClose} />
         </div>
-        <div className="overflow-y-auto overscroll-contain flex-1 min-h-0">
+        <div className="overflow-y-auto overflow-x-hidden overscroll-contain flex-1 min-h-0">
           <div className="px-5 sm:px-6 py-5 flex flex-col gap-4">
             <InputField label="Անուն" value={name} onChange={setName} placeholder="Նյութ Անուն..." required />
             <InputField label="Չ.Մ." value={unit} onChange={setUnit} placeholder="մ, hat, kg..." required />
@@ -236,7 +236,7 @@ function TransferModal({ materials, onClose, preselect, onSuccess }: {
           </div>
           <CloseBtn onClick={onClose} />
         </div>
-        <div className="overflow-y-auto overscroll-contain flex-1 min-h-0">
+        <div className="overflow-y-auto overflow-x-hidden overscroll-contain flex-1 min-h-0">
           <div className="px-5 sm:px-6 py-5 flex flex-col gap-4">
             <div>
               <label className="text-xs font-semibold text-text-muted mb-1.5 block">
