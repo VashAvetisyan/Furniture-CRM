@@ -161,6 +161,21 @@ button, a, input, select, textarea {
    scroll instead of respecting `w-full` on the input itself. */
 input, select, textarea { max-width: 100%; }
 
+/* ── iOS Safari: date/time inputs render inconsistently when empty ──────────
+   With the native (-webkit-appearance: auto) widget, an empty/unfocused
+   date/datetime-local/time input sometimes paints its own system-gray frame
+   at its intrinsic content width instead of respecting our border/background
+   — it snaps back to our styling once it has a value or gets focused, which
+   is why this only shows up on fields left blank by default. Turning off the
+   native appearance makes our own `border-crm-border`/`bg-white`/`rounded-xl`
+   the only thing ever painted, so it's identical whether empty or filled. */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 /* ── Mobile: prevent auto-zoom on input focus ────────────────────────────────
    iOS/Android browsers (and the Android APK WebView) zoom the page in when a
    focused form field's font-size is under 16px — override it just for small
