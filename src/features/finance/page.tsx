@@ -9,6 +9,7 @@ import type { TransferDTO, TransferDirection } from '@/services/transfer.service
 import { taskService } from '@/services/task.service';
 import { useAuthStore } from '@/stores';
 import { toLocalDateTimeInput } from '@/lib/date';
+import FileDeliveryModal from '@/components/ui/FileDeliveryModal';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -454,6 +455,7 @@ export default function FinancePage() {
   const [dateFrom,      setDateFrom]      = useState(() => readSavedFinanceFilters().dateFrom ?? '');
   const [dateTo,        setDateTo]        = useState(() => readSavedFinanceFilters().dateTo ?? '');
   const [isExporting,   setIsExporting]   = useState(false);
+  const [exportFile,    setExportFile]    = useState<{ blob: Blob; filename: string } | null>(null);
   const [pmFilter,      setPmFilter]      = useState<'all' | 'cash' | 'card'>(() => readSavedFinanceFilters().pmFilter ?? 'all');
   const [transferOpen,  setTransferOpen]  = useState(false);
   const [editTransfer,  setEditTransfer]  = useState<TransferDTO | null>(null);
@@ -592,34 +594,7 @@ export default function FinancePage() {
         ...(dateFrom && { date_from: dateFrom }),
         ...(dateTo   && { date_to:   dateTo }),
       });
-      // Plain <a download> silently goes nowhere the user can find it inside
-      // the Android APK's WebView — the native share sheet (Save to Files,
-      // Drive, WhatsApp, ...) is the reliable path there. Real browsers still
-      // fall through to the normal download below when Web Share isn't usable.
-      const nav = navigator as Navigator & {
-        share?:    (data: ShareData) => Promise<void>;
-        canShare?: (data: ShareData) => boolean;
-      };
-      let shared = false;
-      if (nav.share && nav.canShare) {
-        try {
-          const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
-          if (nav.canShare({ files: [file] })) {
-            await nav.share({ files: [file], title: filename });
-            shared = true;
-          }
-        } catch (err) {
-          if (err instanceof Error && err.name === 'AbortError') shared = true; // user cancelled — not a failure
-        }
-      }
-      if (!shared) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
+      setExportFile({ blob, filename });
     } catch {
       alert('Ֆայլը բեռնել չհաջողվեց');
     } finally {
@@ -1089,6 +1064,14 @@ export default function FinancePage() {
           onConfirm={() => deleteTransferMutate(deleteTransfer.id)}
           onCancel={() => setDeleteTransfer(null)}
           isPending={isDeletingTransfer}
+        />
+      )}
+      {exportFile && (
+        <FileDeliveryModal
+          blob={exportFile.blob}
+          filename={exportFile.filename}
+          title={exportFile.filename}
+          onClose={() => setExportFile(null)}
         />
       )}
     </div>

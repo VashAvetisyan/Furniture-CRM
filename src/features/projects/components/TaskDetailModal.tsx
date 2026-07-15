@@ -11,6 +11,7 @@ import { toLocalDateInput, toLocalDateTimeInput } from '@/lib/date';
 import { employeeService } from '@/services/employee.service';
 import { clientService, type ClientDTO } from '@/services/client.service';
 import Avatar from '@/components/ui/Avatar';
+import FileDeliveryModal from '@/components/ui/FileDeliveryModal';
 import { useAuthStore } from '@/stores';
 import { ArrowUpIcon, ArrowDownIcon } from '@/components/icons';
 import type { Task, TaskPriority, TaskPayment, TaskDeliveryInfo } from '../types';
@@ -255,12 +256,13 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
   const [sendDeliveryNotes,   setSendDeliveryNotes]   = useState('');
   const [invoiceLoading,      setInvoiceLoading]      = useState(false);
   const [invoiceError,        setInvoiceError]        = useState('');
+  const [invoiceFile,         setInvoiceFile]         = useState<{ blob: Blob; filename: string } | null>(null);
 
   async function handleInvoice() {
     setInvoiceLoading(true);
     setInvoiceError('');
     try {
-      await taskService.downloadInvoice(task.id);
+      setInvoiceFile(await taskService.fetchInvoice(task.id));
     } catch (e) {
       setInvoiceError((e as Error).message);
     } finally {
@@ -1822,6 +1824,15 @@ export default function TaskDetailModal({ task, projectName, onClose, allowArchi
             </div>
           </div>
         </div>
+      )}
+
+      {invoiceFile && (
+        <FileDeliveryModal
+          blob={invoiceFile.blob}
+          filename={invoiceFile.filename}
+          title={invoiceFile.filename}
+          onClose={() => setInvoiceFile(null)}
+        />
       )}
     </div>
   );

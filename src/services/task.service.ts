@@ -500,7 +500,7 @@ export const taskService = {
     return request<void>(`/tasks/${taskId}/comments/${commentId}/`, { method: 'DELETE' });
   },
 
-  async downloadInvoice(taskId: string): Promise<void> {
+  async fetchInvoice(taskId: string): Promise<{ blob: Blob; filename: string }> {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     const res = await fetch(`${BASE_URL}/tasks/${taskId}/invoice/`, {
       headers: {
@@ -510,37 +510,6 @@ export const taskService = {
     });
     if (!res.ok) throw new Error(`Invoice error: ${res.status}`);
     const blob = await res.blob();
-    const filename = `invoice-${taskId}.pdf`;
-
-    // Plain <a download> silently goes nowhere the user can find it inside
-    // the Android APK's WebView — the native share sheet (Save to Files,
-    // Drive, WhatsApp, ...) is the reliable path there. Real browsers still
-    // fall through to the normal download below when Web Share isn't usable.
-    const nav = navigator as Navigator & {
-      share?:     (data: ShareData) => Promise<void>;
-      canShare?:  (data: ShareData) => boolean;
-    };
-    if (nav.share && nav.canShare) {
-      try {
-        const file = new File([blob], filename, { type: blob.type || 'application/pdf' });
-        if (nav.canShare({ files: [file] })) {
-          await nav.share({ files: [file], title: filename });
-          return;
-        }
-      } catch (err) {
-        // AbortError = user dismissed the share sheet — not a real failure,
-        // don't also trigger a download fallback in that case.
-        if (err instanceof Error && err.name === 'AbortError') return;
-        // Any other failure (e.g. share not actually usable) — fall through
-        // to the plain download below.
-      }
-    }
-
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    return { blob, filename: `invoice-${taskId}.pdf` };
   },
 };
