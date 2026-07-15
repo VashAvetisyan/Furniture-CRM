@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { isMobileDevice, triggerBrowserDownload, openFileInPlace, shareFile } from '@/lib/fileDelivery';
+import { isMobileDevice, triggerBrowserDownload, openFileInPlace, shareFile, hasNativeBridge, saveViaNativeBridge, shareViaNativeBridge } from '@/lib/fileDelivery';
 
 interface FileDeliveryModalProps {
   blob:     Blob;
@@ -13,25 +13,41 @@ interface FileDeliveryModalProps {
 // Desktop: just download, no prompt needed — closes itself immediately.
 // Phone / Android APK: ask whether to save the file or hand it to the native
 // share sheet, since "Downloads" isn't always where a WebView user will look.
+// Same choice UI either way — inside the APK, the bridge silently takes over
+// as the delivery mechanism underneath the buttons, so the experience matches
+// the website instead of branching into a separate flow.
 export default function FileDeliveryModal({ blob, filename, title, onClose }: FileDeliveryModalProps) {
   const [sharing, setSharing] = useState(false);
   const mobile = isMobileDevice();
+  const nativeBridge = hasNativeBridge();
+  const showChoice = mobile || nativeBridge;
 
   useEffect(() => {
-    if (!mobile) {
+    if (!showChoice) {
       triggerBrowserDownload(blob, filename);
       onClose();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!mobile) return null;
+  if (!showChoice) return null;
 
   async function handleShare() {
     setSharing(true);
-    const ok = await shareFile(blob, filename, title);
+    const ok = nativeBridge
+      ? await shareViaNativeBridge(blob, filename)
+      : await shareFile(blob, filename, title);
     setSharing(false);
     if (ok) onClose();
+  }
+
+  function handleDownload() {
+    if (nativeBridge) {
+      saveViaNativeBridge(blob, filename);
+    } else {
+      openFileInPlace(blob);
+    }
+    onClose();
   }
 
   return (
@@ -53,7 +69,7 @@ export default function FileDeliveryModal({ blob, filename, title, onClose }: Fi
             {sharing ? '...' : 'Կիսվել'}
           </button>
           <button
-            onClick={() => { openFileInPlace(blob); onClose(); }}
+            onClick={handleDownload}
             className="w-full px-4 py-2.5 text-sm font-semibold rounded-xl border border-crm-border text-dark hover:bg-gray-50 transition-colors"
           >
             Ներբեռնել
